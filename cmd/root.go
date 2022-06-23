@@ -74,6 +74,7 @@ func read(urlString string, recordchan chan string) {
 			valid := validate(u.Path)
 			fmt.Println("Is valid JSON?", valid)
 			//write to channel
+			close(recordchan)
 		}
 	}
 }
@@ -112,7 +113,7 @@ func write(urlString string, recordchan chan string) {
 		// Wait for project to be assigned.
 		line, result := <- recordchan
 
-		if result==false {
+		if result == false {
 			// This means the channel is empty and closed.
 			fmt.Println("recordchan closed")
 			return
@@ -149,11 +150,15 @@ func readJSONL(jsonFile string, recordchan chan string) {
 	for scanner.Scan() {
 		i++
 		var js json.RawMessage
-		str := scanner.Text()
-		valid := json.Unmarshal([]byte(str), &js) == nil
-		if valid {
-			fmt.Println("Line", i, "is valid.")
-			recordchan <- str
+		str := strings.TrimSpace(scanner.Text())
+		// ignore blank lines
+		if len(str) > 0 {
+			valid := json.Unmarshal([]byte(str), &js) == nil
+			if valid {
+				recordchan <- str
+			} else {
+				fmt.Println("Line", i, "is not valid JSON.")
+			}
 		}
 	}
 	close(recordchan)
