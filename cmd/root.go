@@ -33,8 +33,8 @@ var (
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "move",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
+	Short: "Move records from one location to another.",
+	Long: `TODO: A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
 
 Cobra is a CLI library for Go that empowers applications.
@@ -48,16 +48,16 @@ to quickly create a Cobra application.`,
 			fmt.Println(key, " = ", viper.Get(key))
 		}
 		waitGroup.Add(2)
-		valchan := make(chan string, 10)
-		go read(viper.GetString("inputURL"), valchan)
+		recordchan := make(chan string, 10)
+		go read(viper.GetString("inputURL"), recordchan)
 		//writechan := make(chan string, 10)
-		go write(viper.GetString("outputURL"), valchan)
+		go write(viper.GetString("outputURL"), recordchan)
 		waitGroup.Wait()
 	},
 }
 
 // ----------------------------------------------------------------------------
-func read(urlString string, valchan chan string) {
+func read(urlString string, recordchan chan string) {
 	fmt.Println("Enter read")
 	defer waitGroup.Done()
 	fmt.Println("Read URL:")
@@ -70,7 +70,7 @@ func read(urlString string, valchan chan string) {
 	if u.Scheme == "file" {
 		if strings.HasSuffix(u.Path, "jsonl") {
 			fmt.Println("Is a jsonl file.")
-			readJSONL(u.Path, valchan)
+			readJSONL(u.Path, recordchan)
 		} else {
 			valid := validate(u.Path)
 			fmt.Println("Is valid JSON?", valid)
@@ -80,7 +80,7 @@ func read(urlString string, valchan chan string) {
 }
 
 // ----------------------------------------------------------------------------
-func write(urlString string, valchan chan string) {
+func write(urlString string, recordchan chan string) {
 	fmt.Println("Enter write")
 	defer waitGroup.Done()
 	fmt.Println("Write URL:")
@@ -95,11 +95,11 @@ func write(urlString string, valchan chan string) {
 	for {
 		i++
 		// Wait for project to be assigned.
-		line, result := <- valchan
+		line, result := <- recordchan
 
 		if result==false {
 			// This means the channel is empty and closed.
-			fmt.Println("valchan closed")
+			fmt.Println("recordchan closed")
 			return
 		}
 
@@ -115,7 +115,7 @@ func write(urlString string, valchan chan string) {
 }
 
 // ----------------------------------------------------------------------------
-func readJSONL(jsonFile string, valchan chan string) {
+func readJSONL(jsonFile string, recordchan chan string) {
 	file, err := os.Open(jsonFile)
 	if err != nil {
 		panic(err)
@@ -133,10 +133,10 @@ func readJSONL(jsonFile string, valchan chan string) {
 		valid := json.Unmarshal([]byte(str), &js) == nil
 		if valid {
 			fmt.Println("Line", i, "is valid.")
-			valchan <- str
+			recordchan <- str
 		}
 	}
-	close(valchan)
+	close(recordchan)
 }
 
 // ----------------------------------------------------------------------------
