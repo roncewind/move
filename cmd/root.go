@@ -10,15 +10,14 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net"
 	// "net/http"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
-	"time"
 
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -91,6 +90,22 @@ func write(urlString string, recordchan chan string) {
 	}
 	printURL(u)
 
+	conn, err := amqp.Dial(urlString)
+	failOnError(err, "Failed to connect to RabbitMQ")
+	defer conn.Close()
+	ch, err := conn.Channel()
+	failOnError(err, "Failed to open a channel")
+	defer ch.Close()
+	q, err := ch.QueueDeclare(
+		"hello", // name
+		false,   // durable
+		false,   // delete when unused
+		false,   // exclusive
+		false,   // no-wait
+		nil,     // arguments
+	)
+	failOnError(err, "Failed to declare a queue")
+
 	i := 0
 	for {
 		i++
@@ -103,14 +118,19 @@ func write(urlString string, recordchan chan string) {
 			return
 		}
 
-		fmt.Println("line[", i, "]", line)
-
-		// Randomly wait to simulate work time.
-		sleep := rand.Int63n(50)
-		time.Sleep(time.Duration(sleep) * time.Millisecond)
-		// Display time to wait
-		fmt.Println("\nTime to sleep",sleep,"ms\n")
-
+		err = ch.Publish(
+			"",     // exchange
+			q.Name, // routing key
+			false,  // mandatory
+			false,  // immediate
+			amqp.Publishing {
+				ContentType: "text/plain",
+				Body:        []byte(line),
+			})
+		if err != nil {
+			fmt.Println("Failed to publish record ", i)
+			fmt.Println("ERROR: ", err)
+		}
 	}
 }
 
@@ -225,6 +245,14 @@ func printURL(u *url.URL) {
 	m, _ := url.ParseQuery(u.RawQuery)
 	fmt.Println("\tParsed query string: ", m)
 	// fmt.Println(m["k"][0])
+}
+
+// ----------------------------------------------------------------------------
+func failOnError(err error, msg string) {
+	if err != nil {
+		s := fmt.Sprintf("%s: %s", msg, err)
+		panic(s)
+	}
 }
 
 // ----------------------------------------------------------------------------
