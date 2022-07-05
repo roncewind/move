@@ -167,6 +167,12 @@ func readJSONL(jsonFile string, recordchan chan string) {
 }
 
 // ----------------------------------------------------------------------------
+type Entity struct {
+	DataSource string `json:"DATA_SOURCE"`
+	RecordId string `json:"RECORD_ID"`
+}
+
+// ----------------------------------------------------------------------------
 func validateLine(line string) (bool, error) {
 	var entity Entity
 	valid := json.Unmarshal([]byte(line), &entity) == nil
@@ -174,12 +180,6 @@ func validateLine(line string) (bool, error) {
 		return validateEntity(entity)
 	}
 	return valid, errors.New("JSON-line not well formed.")
-}
-
-// ----------------------------------------------------------------------------
-type Entity struct {
-	DataSource string `json:"DATA_SOURCE"`
-	RecordId string `json:"RECORD_ID"`
 }
 
 // ----------------------------------------------------------------------------
