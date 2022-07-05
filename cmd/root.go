@@ -7,6 +7,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -24,9 +25,9 @@ import (
 
 var (
 	cfgFile string
-	waitGroup sync.WaitGroup
 	inputURL string
 	outputURL string
+	waitGroup sync.WaitGroup
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -39,8 +40,8 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
+
+	// The core of this command:
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("start Run")
 		for _, key := range viper.AllKeys() {
@@ -49,7 +50,6 @@ to quickly create a Cobra application.`,
 		waitGroup.Add(2)
 		recordchan := make(chan string, 10)
 		go read(viper.GetString("inputURL"), recordchan)
-		//writechan := make(chan string, 10)
 		go write(viper.GetString("outputURL"), recordchan)
 		waitGroup.Wait()
 	},
@@ -76,6 +76,9 @@ func read(urlString string, recordchan chan string) {
 			//write to channel
 			close(recordchan)
 		}
+	} else {
+		msg := fmt.Sprintf("We don't handle %s input URLs.", u.Scheme)
+		panic(msg)
 	}
 }
 
@@ -149,19 +152,45 @@ func readJSONL(jsonFile string, recordchan chan string) {
 	i := 0
 	for scanner.Scan() {
 		i++
-		var js json.RawMessage
 		str := strings.TrimSpace(scanner.Text())
 		// ignore blank lines
 		if len(str) > 0 {
-			valid := json.Unmarshal([]byte(str), &js) == nil
+			valid, err := validateLine(str)
 			if valid {
 				recordchan <- str
 			} else {
-				fmt.Println("Line", i, "is not valid JSON.")
+				fmt.Println("Line", i, err)
 			}
 		}
 	}
 	close(recordchan)
+}
+
+// ----------------------------------------------------------------------------
+func validateLine(line string) (bool, error) {
+	var entity Entity
+	valid := json.Unmarshal([]byte(line), &entity) == nil
+	if valid {
+		return validateEntity(entity)
+	}
+	return valid, errors.New("JSON-line not well formed.")
+}
+
+// ----------------------------------------------------------------------------
+type Entity struct {
+	DataSource string `json:"DATA_SOURCE"`
+	RecordId string `json:"RECORD_ID"`
+}
+
+// ----------------------------------------------------------------------------
+func validateEntity(entity Entity) (bool, error) {
+	if entity.DataSource == "" {
+		return false, errors.New("A DATA_SOURCE field is required.")
+	}
+	if entity.RecordId == "" {
+		return false, errors.New("A RECORD_ID field is required.")
+	}
+	return true, nil
 }
 
 // ----------------------------------------------------------------------------
@@ -319,3 +348,4 @@ func initConfig() {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
 }
+
