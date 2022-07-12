@@ -101,8 +101,8 @@ func write(urlString string, recordchan chan string) {
 	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
 	q, err := ch.QueueDeclare(
-		"hello", // name
-		false,   // durable
+		"senzing_input", // name
+		true,   // durable
 		false,   // delete when unused
 		false,   // exclusive
 		false,   // no-wait
@@ -128,6 +128,7 @@ func write(urlString string, recordchan chan string) {
 			false,  // mandatory
 			false,  // immediate
 			amqp.Publishing {
+				DeliveryMode: amqp.Persistent,
 				ContentType: "text/plain",
 				Body:        []byte(line),
 			})
