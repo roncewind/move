@@ -136,7 +136,7 @@ func write(urlString string, exchange string, queue string, recordchan chan stri
 	i := 0
 	for {
 		i++
-		// Wait for project to be assigned.
+		// Wait for record to be assigned.
 		line, result := <- recordchan
 
 		if result == false {
