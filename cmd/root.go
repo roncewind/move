@@ -44,8 +44,9 @@ to quickly create a Cobra application.`,
 	// The core of this command:
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("start Run")
+		fmt.Println("viper key list:")
 		for _, key := range viper.AllKeys() {
-			fmt.Println(key, " = ", viper.Get(key))
+			fmt.Println("  - ", key, " = ", viper.Get(key))
 		}
 		waitGroup.Add(2)
 		recordchan := make(chan string, 10)
@@ -308,7 +309,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.senzing/config.yaml)")
+	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.senzing-tools/config.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
