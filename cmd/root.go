@@ -25,6 +25,8 @@ import (
 
 var (
 	cfgFile string
+	exchange string = "senzing"
+	inputQueue string = "senzing_input"
 	inputURL string
 	outputURL string
 	waitGroup sync.WaitGroup
@@ -101,8 +103,20 @@ func write(urlString string, recordchan chan string) {
 	ch, err := conn.Channel()
 	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
+
+	err = ch.ExchangeDeclare(
+		exchange,   // name
+		"direct", // type
+		true,     // durable
+		false,    // auto-deleted
+		false,    // internal
+		false,    // no-wait
+		nil,      // arguments
+	)
+	failOnError(err, "Failed to declare an exchange")
+
 	q, err := ch.QueueDeclare(
-		"senzing_input", // name
+		inputQueue, // name
 		true,   // durable
 		false,   // delete when unused
 		false,   // exclusive
@@ -110,6 +124,14 @@ func write(urlString string, recordchan chan string) {
 		nil,     // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
+
+	err = ch.QueueBind(
+		q.Name, // queue name
+		q.Name,     // routing key
+		exchange, // exchange
+		false,
+		nil,
+	)
 
 	i := 0
 	for {
@@ -124,7 +146,7 @@ func write(urlString string, recordchan chan string) {
 		}
 
 		err = ch.Publish(
-			"",     // exchange
+			exchange,     // exchange
 			q.Name, // routing key
 			false,  // mandatory
 			false,  // immediate
@@ -316,12 +338,20 @@ func init() {
 	// RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	RootCmd.Flags().StringVarP(&inputURL, "inputURL", "i", "", "input location")
 	viper.BindPFlag("inputURL", RootCmd.Flags().Lookup("inputURL"))
-	RootCmd.Flags().StringVarP(&outputURL, "outputURL", "o", "", "ouput location")
+	RootCmd.Flags().StringVarP(&outputURL, "outputURL", "o", "", "output location")
 	viper.BindPFlag("outputURL", RootCmd.Flags().Lookup("outputURL"))
+	RootCmd.Flags().StringVarP(&exchange, "exchange", "", "", "Message queue exchange name")
+	viper.BindPFlag("exchange", RootCmd.Flags().Lookup("exchange"))
+	RootCmd.Flags().StringVarP(&inputQueue, "inputQueue", "", "", "Senzing input queue name")
+	viper.BindPFlag("inputQueue", RootCmd.Flags().Lookup("inputQueue"))
 }
 
 // ----------------------------------------------------------------------------
 // initConfig reads in config file and ENV variables if set.
+// Config precedence:
+// - cmdline args
+// - env vars
+// - config file
 func initConfig() {
 	if cfgFile != "" {
 		// Use config file from the flag.
@@ -344,6 +374,8 @@ func initConfig() {
 	viper.SetEnvPrefix("senzing_tools")
 	viper.BindEnv("inputURL")
 	viper.BindEnv("outputURL")
+	viper.BindEnv("exchange")
+	viper.BindEnv("inputQueue")
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
