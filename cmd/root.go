@@ -46,7 +46,6 @@ to quickly create a Cobra application.`,
 	// The core of this command:
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("start Run")
-
 		fmt.Println("viper key list:")
 		for _, key := range viper.AllKeys() {
 			fmt.Println("  - ", key, " = ", viper.Get(key))
@@ -105,9 +104,6 @@ func write(urlString string, exchange string, queue string, recordchan chan stri
 	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
 
-	if exchange == "" {
-		panic("An exchange needs to be set.")
-	}
 	err = ch.ExchangeDeclare(
 		exchange,   // name
 		"direct", // type
