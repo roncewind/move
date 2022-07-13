@@ -46,6 +46,7 @@ to quickly create a Cobra application.`,
 	// The core of this command:
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("start Run")
+
 		fmt.Println("viper key list:")
 		for _, key := range viper.AllKeys() {
 			fmt.Println("  - ", key, " = ", viper.Get(key))
@@ -53,7 +54,7 @@ to quickly create a Cobra application.`,
 		waitGroup.Add(2)
 		recordchan := make(chan string, 10)
 		go read(viper.GetString("inputURL"), recordchan)
-		go write(viper.GetString("outputURL"), recordchan)
+		go write(viper.GetString("outputURL"), viper.GetString("exchange"), viper.GetString("inputQueue"), recordchan)
 		waitGroup.Wait()
 	},
 }
@@ -86,7 +87,7 @@ func read(urlString string, recordchan chan string) {
 }
 
 // ----------------------------------------------------------------------------
-func write(urlString string, recordchan chan string) {
+func write(urlString string, exchange string, queue string, recordchan chan string) {
 	fmt.Println("Enter write")
 	defer waitGroup.Done()
 	fmt.Println("Write URL:")
@@ -104,6 +105,9 @@ func write(urlString string, recordchan chan string) {
 	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
 
+	if exchange == "" {
+		panic("An exchange needs to be set.")
+	}
 	err = ch.ExchangeDeclare(
 		exchange,   // name
 		"direct", // type
@@ -116,7 +120,7 @@ func write(urlString string, recordchan chan string) {
 	failOnError(err, "Failed to declare an exchange")
 
 	q, err := ch.QueueDeclare(
-		inputQueue, // name
+		queue, // name
 		true,   // durable
 		false,   // delete when unused
 		false,   // exclusive
@@ -375,7 +379,9 @@ func initConfig() {
 	viper.BindEnv("inputURL")
 	viper.BindEnv("outputURL")
 	viper.BindEnv("exchange")
+	viper.SetDefault("exchange", "senzing")
 	viper.BindEnv("inputQueue")
+	viper.SetDefault("inputQueue", "senzing-input")
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
