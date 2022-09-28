@@ -50,11 +50,16 @@ to quickly create a Cobra application.`,
 		for _, key := range viper.AllKeys() {
 			fmt.Println("  - ", key, " = ", viper.Get(key))
 		}
-		waitGroup.Add(2)
-		recordchan := make(chan string, 10)
-		go read(viper.GetString("inputURL"), recordchan)
-		go write(viper.GetString("outputURL"), viper.GetString("exchange"), viper.GetString("inputQueue"), recordchan)
-		waitGroup.Wait()
+		if(viper.IsSet("inputURL")){
+
+			waitGroup.Add(2)
+			recordchan := make(chan string, 10)
+			go read(viper.GetString("inputURL"), recordchan)
+			go write(viper.GetString("outputURL"), viper.GetString("exchange"), viper.GetString("inputQueue"), recordchan)
+			waitGroup.Wait()
+		} else {
+			cmd.Help()
+		}
 	},
 }
 
