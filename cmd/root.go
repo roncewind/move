@@ -7,7 +7,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
-	"errors"
+	// "errors"
 	"fmt"
 	"io"
 	"log"
@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/roncewind/szrecord"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -189,7 +190,7 @@ func readJSONL(jsonFile string, recordchan chan string) {
 		str := strings.TrimSpace(scanner.Text())
 		// ignore blank lines
 		if len(str) > 0 {
-			valid, err := validateLine(str)
+			valid, err := szrecord.Validate(str)
 			if valid {
 				recordchan <- str
 			} else {
@@ -198,33 +199,6 @@ func readJSONL(jsonFile string, recordchan chan string) {
 		}
 	}
 	close(recordchan)
-}
-
-// ----------------------------------------------------------------------------
-type Record struct {
-	DataSource string `json:"DATA_SOURCE"`
-	RecordId string `json:"RECORD_ID"`
-}
-
-// ----------------------------------------------------------------------------
-func validateLine(line string) (bool, error) {
-	var record Record
-	valid := json.Unmarshal([]byte(line), &record) == nil
-	if valid {
-		return validateRecord(record)
-	}
-	return valid, errors.New("JSON-line not well formed.")
-}
-
-// ----------------------------------------------------------------------------
-func validateRecord(record Record) (bool, error) {
-	if record.DataSource == "" {
-		return false, errors.New("A DATA_SOURCE field is required.")
-	}
-	if record.RecordId == "" {
-		return false, errors.New("A RECORD_ID field is required.")
-	}
-	return true, nil
 }
 
 // ----------------------------------------------------------------------------
