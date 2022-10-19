@@ -361,27 +361,22 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.senzing-tools/config.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	// RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	RootCmd.Flags().StringVarP(&inputURL, "inputURL", "i", "", "input location")
-	viper.BindPFlag("inputURL", RootCmd.Flags().Lookup("inputURL"))
-	RootCmd.Flags().StringVarP(&fileType, "fileType", "", "", "file type override")
-	viper.BindPFlag("fileType", RootCmd.Flags().Lookup("fileType"))
-	RootCmd.Flags().StringVarP(&outputURL, "outputURL", "o", "", "output location")
-	viper.BindPFlag("outputURL", RootCmd.Flags().Lookup("outputURL"))
 	RootCmd.Flags().StringVarP(&exchange, "exchange", "", "", "Message queue exchange name")
 	viper.BindPFlag("exchange", RootCmd.Flags().Lookup("exchange"))
+	RootCmd.Flags().StringVarP(&fileType, "fileType", "", "", "file type override")
+	viper.BindPFlag("fileType", RootCmd.Flags().Lookup("fileType"))
 	RootCmd.Flags().StringVarP(&inputQueue, "inputQueue", "", "", "Senzing input queue name")
 	viper.BindPFlag("inputQueue", RootCmd.Flags().Lookup("inputQueue"))
+	RootCmd.Flags().StringVarP(&inputURL, "inputURL", "i", "", "input location")
+	viper.BindPFlag("inputURL", RootCmd.Flags().Lookup("inputURL"))
 	RootCmd.Flags().StringVarP(&logLevel, "logLevel", "", "", "set the logging level, default Error")
 	viper.BindPFlag("logLevel", RootCmd.Flags().Lookup("logLevel"))
+	RootCmd.Flags().StringVarP(&outputURL, "outputURL", "o", "", "output location")
+	viper.BindPFlag("outputURL", RootCmd.Flags().Lookup("outputURL"))
 }
 
 // ----------------------------------------------------------------------------
@@ -412,7 +407,7 @@ func initConfig() {
 			// Config file not found; ignore error
 		} else {
 			// Config file was found but another error was produced
-			logger.LogMessage(MessageIdFormat, 2001, "Config file found, but not loaded", err)
+			logger.LogMessageFromError(MessageIdFormat, 2001, "Config file found, but not loaded", err)
 		}
 	}
 	viper.AutomaticEnv() // read in environment variables that match
