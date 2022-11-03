@@ -36,6 +36,12 @@ var (
 	waitGroup  sync.WaitGroup
 )
 
+type record struct {
+	line       string
+	fileName   string
+	lineNumber int
+}
+
 // move is 6202:  https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
 const MessageIdFormat = "senzing-6202%04d"
 
@@ -67,7 +73,7 @@ var RootCmd = &cobra.Command{
 			viper.IsSet("inputQueue") {
 
 			waitGroup.Add(2)
-			recordchan := make(chan string, 10)
+			recordchan := make(chan record, 10)
 			go read(viper.GetString("inputURL"), recordchan)
 			go write(viper.GetString("outputURL"), viper.GetString("exchange"), viper.GetString("inputQueue"), recordchan)
 			waitGroup.Wait()
@@ -78,7 +84,7 @@ var RootCmd = &cobra.Command{
 }
 
 // ----------------------------------------------------------------------------
-func read(urlString string, recordchan chan string) {
+func read(urlString string, recordchan chan record) {
 
 	defer waitGroup.Done()
 
@@ -119,7 +125,7 @@ func read(urlString string, recordchan chan string) {
 }
 
 // ----------------------------------------------------------------------------
-func write(urlString string, exchange string, queue string, recordchan chan string) {
+func write(urlString string, exchange string, queue string, recordchan chan record) {
 	fmt.Println("Enter write")
 	defer waitGroup.Done()
 	fmt.Println("Write URL:")
@@ -171,7 +177,7 @@ func write(urlString string, exchange string, queue string, recordchan chan stri
 	for {
 		i++
 		// Wait for record to be assigned.
-		line, result := <-recordchan
+		record, result := <-recordchan
 
 		if !result {
 			// This means the channel is empty and closed.
@@ -185,9 +191,10 @@ func write(urlString string, exchange string, queue string, recordchan chan stri
 			false,    // mandatory
 			false,    // immediate
 			amqp.Publishing{
-				DeliveryMode: amqp.Persistent,
+				Body:         []byte(record.line),
 				ContentType:  "text/plain",
-				Body:         []byte(line),
+				DeliveryMode: amqp.Persistent,
+				MessageId:    fmt.Sprintf("%s-%d", record.fileName, record.lineNumber), //TODO: meaninful or random MessageId?
 			})
 		if err != nil {
 			fmt.Println("Failed to publish record ", i)
@@ -197,7 +204,7 @@ func write(urlString string, exchange string, queue string, recordchan chan stri
 }
 
 // ----------------------------------------------------------------------------
-func readJSONLResource(jsonURL string, recordchan chan string) {
+func readJSONLResource(jsonURL string, recordchan chan record) {
 	response, err := http.Get(jsonURL)
 	if err != nil {
 		panic(err)
@@ -215,7 +222,7 @@ func readJSONLResource(jsonURL string, recordchan chan string) {
 		if len(str) > 0 {
 			valid, err := szrecord.Validate(str)
 			if valid {
-				recordchan <- str
+				recordchan <- record{str, jsonURL, i}
 			} else {
 				fmt.Println("Line", i, err)
 			}
@@ -225,7 +232,7 @@ func readJSONLResource(jsonURL string, recordchan chan string) {
 }
 
 // ----------------------------------------------------------------------------
-func readJSONLFile(jsonFile string, recordchan chan string) {
+func readJSONLFile(jsonFile string, recordchan chan record) {
 	file, err := os.Open(jsonFile)
 	if err != nil {
 		panic(err)
@@ -243,7 +250,7 @@ func readJSONLFile(jsonFile string, recordchan chan string) {
 		if len(str) > 0 {
 			valid, err := szrecord.Validate(str)
 			if valid {
-				recordchan <- str
+				recordchan <- record{str, jsonFile, i}
 			} else {
 				fmt.Println("Line", i, err)
 			}
