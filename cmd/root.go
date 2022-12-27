@@ -6,6 +6,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
+	"time"
 
 	// "errors"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/docktermj/go-xyzzy-helpers/logger"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/roncewind/move/io/rabbitmq"
 	"github.com/roncewind/szrecord"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -108,7 +110,6 @@ func read(urlString string, recordchan chan record) {
 		} else {
 			valid := validate(u.Path)
 			fmt.Println("Is valid JSON?", valid)
-			//write to channel
 			close(recordchan)
 		}
 	} else if u.Scheme == "http" || u.Scheme == "https" {
@@ -126,6 +127,46 @@ func read(urlString string, recordchan chan record) {
 
 // ----------------------------------------------------------------------------
 func write(urlString string, exchange string, queue string, recordchan chan record) {
+	fmt.Println("Enter write")
+	defer waitGroup.Done()
+	fmt.Println("Write URL string: ", urlString)
+	u, err := url.Parse(urlString)
+	if err != nil {
+		panic(err)
+	}
+	printURL(u)
+
+	client := rabbitmq.NewClient(exchange, queue, urlString)
+	defer client.Close()
+
+	var record record
+	var result bool
+	// Wait for record to be assigned.
+	record, result = <-recordchan
+	for {
+
+		if !result {
+			// This means the channel is empty and closed.
+			fmt.Println("recordchan closed")
+			client.Close()
+			return
+		}
+
+		//TODO: meaningful or random MessageId?
+		if err := client.Push([]byte(record.line), fmt.Sprintf("%s-%d", record.fileName, record.lineNumber)); err != nil {
+			fmt.Println("Failed to publish record line: ", record.lineNumber)
+			fmt.Println("ERROR: ", err)
+			// avoid a tight loop
+			time.Sleep(2 * 1000 * time.Millisecond)
+		} else {
+			// Wait for record to be assigned.
+			record, result = <-recordchan
+		}
+	}
+}
+
+// ----------------------------------------------------------------------------
+func writeXXX(urlString string, exchange string, queue string, recordchan chan record) {
 	fmt.Println("Enter write")
 	defer waitGroup.Done()
 	fmt.Println("Write URL:")
@@ -194,7 +235,7 @@ func write(urlString string, exchange string, queue string, recordchan chan reco
 				Body:         []byte(record.line),
 				ContentType:  "text/plain",
 				DeliveryMode: amqp.Persistent,
-				MessageId:    fmt.Sprintf("%s-%d", record.fileName, record.lineNumber), //TODO: meaninful or random MessageId?
+				MessageId:    fmt.Sprintf("%s-%d", record.fileName, record.lineNumber), //TODO: meaningful or random MessageId?
 			})
 		if err != nil {
 			fmt.Println("Failed to publish record ", i)
