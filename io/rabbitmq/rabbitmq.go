@@ -20,6 +20,7 @@ type Client struct {
 	notifyConnClose chan *amqp.Error
 	notifyChanClose chan *amqp.Error
 	notifyConfirm   chan amqp.Confirmation
+	notifyReady     chan interface{}
 	queueName       string
 	reconnectDelay  time.Duration
 	reInitDelay     time.Duration
@@ -45,6 +46,7 @@ func NewClient(exchangeName, queueName, addr string) *Client {
 		done:           make(chan bool),
 		exchangeName:   exchangeName,
 		logger:         log.New(os.Stdout, "", log.LstdFlags),
+		notifyReady:    make(chan interface{}),
 		queueName:      queueName,
 		reconnectDelay: 5 * time.Second,
 		reInitDelay:    2 * time.Second,
@@ -180,6 +182,7 @@ func (client *Client) init(conn *amqp.Connection) error {
 
 	client.changeChannel(ch)
 	client.isReady = true
+	client.notifyReady <- struct{}{}
 	client.logger.Println("Setup!")
 
 	return nil
@@ -213,9 +216,9 @@ func (client *Client) changeChannel(channel *amqp.Channel) {
 // only returned if the push action itself fails, see UnsafePush.
 func (client *Client) Push(record Record) error {
 
-	//FIXME:  how do/should we wait for a connection?
 	if !client.isReady {
-		return errors.New("failed to push: not connected") //TODO:  error message to include messageId?
+		// wait for client to be ready
+		<-client.notifyReady
 	}
 	for {
 		err := client.UnsafePush(record)
@@ -247,9 +250,9 @@ func (client *Client) Push(record Record) error {
 // receive the message.
 func (client *Client) UnsafePush(record Record) error {
 
-	//FIXME:  how do/should we wait for a connection?
 	if !client.isReady {
-		return errNotConnected //TODO:  error message to include messageId?
+		// wait for client to be ready
+		<-client.notifyReady
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
