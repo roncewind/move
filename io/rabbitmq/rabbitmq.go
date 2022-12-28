@@ -156,12 +156,12 @@ func (client *Client) init(conn *amqp.Connection) error {
 
 	var q amqp.Queue
 	q, err = ch.QueueDeclare(
-		client.queueName,
-		true,
-		false,
-		false,
-		false,
-		nil,
+		client.queueName, // name
+		true,             // durable
+		false,            // delete when unused
+		false,            // exclusive
+		false,            // no-wait
+		nil,              // arguments
 	)
 	if err != nil {
 		return err
@@ -252,12 +252,12 @@ func (client *Client) UnsafePush(body []byte, messageId string) error {
 	defer cancel()
 
 	return client.channel.PublishWithContext(
-		ctx,
-		"",
-		client.queueName,
-		false,
-		false,
-		amqp.Publishing{
+		ctx,                 // context
+		client.exchangeName, // exchange name
+		client.queueName,    // routing key
+		false,               // mandatory
+		false,               // immediate
+		amqp.Publishing{ // message
 			Body:         body,
 			ContentType:  "text/plain",
 			DeliveryMode: amqp.Persistent,

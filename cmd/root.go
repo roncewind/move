@@ -20,7 +20,6 @@ import (
 	"sync"
 
 	"github.com/docktermj/go-xyzzy-helpers/logger"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/roncewind/move/io/rabbitmq"
 	"github.com/roncewind/szrecord"
 	"github.com/spf13/cobra"
@@ -49,6 +48,7 @@ func (record record) GetMessage() string {
 }
 
 func (record record) GetMessageId() string {
+	//TODO: meaningful or random MessageId?
 	return fmt.Sprintf("%s-%d", record.fileName, record.lineNumber)
 }
 
@@ -159,7 +159,6 @@ func write(urlString string, exchange string, queue string, recordchan chan reco
 			return
 		}
 
-		//TODO: meaningful or random MessageId?
 		if err := client.Push(record); err != nil {
 			fmt.Println("Failed to publish record line: ", record.lineNumber)
 			fmt.Println("ERROR: ", err)
@@ -168,85 +167,6 @@ func write(urlString string, exchange string, queue string, recordchan chan reco
 		} else {
 			// Wait for record to be assigned.
 			record, result = <-recordchan
-		}
-	}
-}
-
-// ----------------------------------------------------------------------------
-func writeXXX(urlString string, exchange string, queue string, recordchan chan record) {
-	fmt.Println("Enter write")
-	defer waitGroup.Done()
-	fmt.Println("Write URL:")
-	fmt.Println("URL string: ", urlString)
-	u, err := url.Parse(urlString)
-	if err != nil {
-		panic(err)
-	}
-	printURL(u)
-
-	conn, err := amqp.Dial(urlString)
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	defer ch.Close()
-
-	err = ch.ExchangeDeclare(
-		exchange, // name
-		"direct", // type
-		true,     // durable
-		false,    // auto-deleted
-		false,    // internal
-		false,    // no-wait
-		nil,      // arguments
-	)
-	failOnError(err, "Failed to declare an exchange")
-
-	q, err := ch.QueueDeclare(
-		queue, // name
-		true,  // durable
-		false, // delete when unused
-		false, // exclusive
-		false, // no-wait
-		nil,   // arguments
-	)
-	failOnError(err, "Failed to declare a queue")
-
-	err = ch.QueueBind(
-		q.Name,   // queue name
-		q.Name,   // routing key
-		exchange, // exchange
-		false,
-		nil,
-	)
-	failOnError(err, "Failed to bind queue")
-
-	i := 0
-	for {
-		i++
-		// Wait for record to be assigned.
-		record, result := <-recordchan
-
-		if !result {
-			// This means the channel is empty and closed.
-			fmt.Println("recordchan closed")
-			return
-		}
-
-		err = ch.Publish(
-			exchange, // exchange
-			q.Name,   // routing key
-			false,    // mandatory
-			false,    // immediate
-			amqp.Publishing{
-				Body:         []byte(record.line),
-				ContentType:  "text/plain",
-				DeliveryMode: amqp.Persistent,
-				MessageId:    fmt.Sprintf("%s-%d", record.fileName, record.lineNumber), //TODO: meaningful or random MessageId?
-			})
-		if err != nil {
-			fmt.Println("Failed to publish record ", i)
-			fmt.Println("ERROR: ", err)
 		}
 	}
 }
