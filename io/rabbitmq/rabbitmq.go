@@ -26,6 +26,11 @@ type Client struct {
 	resendDelay     time.Duration
 }
 
+type Record interface {
+	GetMessage() string
+	GetMessageId() string
+}
+
 var (
 	errNotConnected  = errors.New("not connected to a server")
 	errAlreadyClosed = errors.New("already closed: not connected to the server")
@@ -206,14 +211,14 @@ func (client *Client) changeChannel(channel *amqp.Channel) {
 // it re-sends messages until a confirm is received.
 // This will block until the server sends a confirm. Errors are
 // only returned if the push action itself fails, see UnsafePush.
-func (client *Client) Push(body []byte, messageId string) error {
+func (client *Client) Push(record Record) error {
 	if !client.isReady {
 		return errors.New("failed to push: not connected") //TODO:  error message to include messageId?
 	}
 	for {
-		err := client.UnsafePush(body, messageId)
+		err := client.UnsafePush([]byte(record.GetMessage()), record.GetMessageId())
 		if err != nil {
-			client.logger.Println("Push failed. Retrying. MessageId: ", messageId) //TODO:  debug or trace logging, add messageId
+			client.logger.Println("Push failed. Retrying. MessageId: ", record.GetMessageId()) //TODO:  debug or trace logging, add messageId
 			select {
 			case <-client.done:
 				return errShutdown //TODO:  error message to include messageId?
@@ -229,7 +234,7 @@ func (client *Client) Push(body []byte, messageId string) error {
 			}
 		case <-time.After(client.resendDelay):
 		}
-		client.logger.Println("Push didn't confirm. Retrying. MessageId: ", messageId) //TODO:  debug or trace logging, add messageId
+		client.logger.Println("Push didn't confirm. Retrying. MessageId: ", record.GetMessageId()) //TODO:  debug or trace logging, add messageId
 	}
 }
 

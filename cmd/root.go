@@ -44,6 +44,14 @@ type record struct {
 	lineNumber int
 }
 
+func (record record) GetMessage() string {
+	return record.line
+}
+
+func (record record) GetMessageId() string {
+	return fmt.Sprintf("%s-%d", record.fileName, record.lineNumber)
+}
+
 // move is 6202:  https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
 const MessageIdFormat = "senzing-6202%04d"
 
@@ -152,7 +160,7 @@ func write(urlString string, exchange string, queue string, recordchan chan reco
 		}
 
 		//TODO: meaningful or random MessageId?
-		if err := client.Push([]byte(record.line), fmt.Sprintf("%s-%d", record.fileName, record.lineNumber)); err != nil {
+		if err := client.Push(record); err != nil {
 			fmt.Println("Failed to publish record line: ", record.lineNumber)
 			fmt.Println("ERROR: ", err)
 			// avoid a tight loop
