@@ -153,7 +153,6 @@ func write(urlString string, exchange string, queue string, recordchan chan reco
 		if !result && len(recordchan) == 0 {
 			// This means the channel is empty and closed.
 			fmt.Println("all records moved, recordchan closed")
-			client.Close()
 			return
 		}
 
