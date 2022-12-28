@@ -309,6 +309,7 @@ func (client *Client) Close() error {
 		return errAlreadyClosed
 	}
 	close(client.done)
+	close(client.notifyReady)
 	err := client.channel.Close()
 	if err != nil {
 		return err
