@@ -38,8 +38,8 @@ var (
 )
 
 // ----------------------------------------------------------------------------
-// New creates a new consumer state instance, and automatically
-// attempts to connect to the server.
+// New creates a single RabbitMQ client that will automatically
+// attempt to connect to the server.
 func NewClient(exchangeName, queueName, addr string) *Client {
 	client := Client{
 		done:           make(chan bool),
@@ -212,11 +212,13 @@ func (client *Client) changeChannel(channel *amqp.Channel) {
 // This will block until the server sends a confirm. Errors are
 // only returned if the push action itself fails, see UnsafePush.
 func (client *Client) Push(record Record) error {
+
+	//FIXME:  how do/should we wait for a connection?
 	if !client.isReady {
 		return errors.New("failed to push: not connected") //TODO:  error message to include messageId?
 	}
 	for {
-		err := client.UnsafePush([]byte(record.GetMessage()), record.GetMessageId())
+		err := client.UnsafePush(record)
 		if err != nil {
 			client.logger.Println("Push failed. Retrying. MessageId: ", record.GetMessageId()) //TODO:  debug or trace logging, add messageId
 			select {
@@ -243,7 +245,9 @@ func (client *Client) Push(record Record) error {
 // confirmation. It returns an error if it fails to connect.
 // No guarantees are provided for if the server will
 // receive the message.
-func (client *Client) UnsafePush(body []byte, messageId string) error {
+func (client *Client) UnsafePush(record Record) error {
+
+	//FIXME:  how do/should we wait for a connection?
 	if !client.isReady {
 		return errNotConnected //TODO:  error message to include messageId?
 	}
@@ -258,10 +262,10 @@ func (client *Client) UnsafePush(body []byte, messageId string) error {
 		false,               // mandatory
 		false,               // immediate
 		amqp.Publishing{ // message
-			Body:         body,
+			Body:         []byte(record.GetMessage()),
 			ContentType:  "text/plain",
 			DeliveryMode: amqp.Persistent,
-			MessageId:    messageId,
+			MessageId:    record.GetMessageId(),
 		},
 	)
 }
