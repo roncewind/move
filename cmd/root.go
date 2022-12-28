@@ -6,7 +6,6 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
-	"time"
 
 	// "errors"
 	"fmt"
@@ -147,14 +146,13 @@ func write(urlString string, exchange string, queue string, recordchan chan reco
 	client := rabbitmq.NewClient(exchange, queue, urlString)
 	defer client.Close()
 
-	var record record
-	var result bool
-	// Wait for record to be assigned.
-	record, result = <-recordchan
 	for {
+		// Wait for record to be assigned.
+		record, result := <-recordchan
+
 		if !result && len(recordchan) == 0 {
 			// This means the channel is empty and closed.
-			fmt.Println("recordchan closed")
+			fmt.Println("all records moved, recordchan closed")
 			client.Close()
 			return
 		}
@@ -162,11 +160,6 @@ func write(urlString string, exchange string, queue string, recordchan chan reco
 		if err := client.Push(record); err != nil {
 			fmt.Println("Failed to publish record line: ", record.lineNumber)
 			fmt.Println("ERROR: ", err)
-			// avoid a tight loop
-			time.Sleep(2 * 1000 * time.Millisecond)
-		} else {
-			// Wait for record to be assigned.
-			record, result = <-recordchan
 		}
 	}
 }
