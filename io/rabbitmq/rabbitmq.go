@@ -336,21 +336,21 @@ func (client *Client) Consume() (<-chan amqp.Delivery, error) {
 	}
 
 	if err := client.channel.Qos(
-		1,
-		0,
-		false,
+		1,     // prefetch count (should set to the number of load goroutines)
+		0,     // prefetch size
+		false, // global
 	); err != nil {
 		return nil, err
 	}
 
 	return client.channel.Consume(
-		client.QueueName,
-		"",
-		false,
-		false,
-		false,
-		false,
-		nil,
+		client.QueueName, // queue
+		"",               // consumer
+		false,            // auto-ack
+		false,            // exclusive
+		false,            // no-local
+		false,            // no-wait
+		nil,              // args
 	)
 }
 
