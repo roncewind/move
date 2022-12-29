@@ -11,20 +11,21 @@ import (
 )
 
 type Client struct {
+	ExchangeName   string
+	QueueName      string
+	ReconnectDelay time.Duration
+	ReInitDelay    time.Duration
+	ResendDelay    time.Duration
+
 	connection      *amqp.Connection
 	channel         *amqp.Channel
 	done            chan bool
-	exchangeName    string
 	isReady         bool
 	logger          *log.Logger
 	notifyConnClose chan *amqp.Error
 	notifyChanClose chan *amqp.Error
 	notifyConfirm   chan amqp.Confirmation
 	notifyReady     chan interface{}
-	queueName       string
-	reconnectDelay  time.Duration
-	reInitDelay     time.Duration
-	resendDelay     time.Duration
 }
 
 type Record interface {
@@ -33,7 +34,6 @@ type Record interface {
 }
 
 var (
-	errNotConnected  = errors.New("not connected to a server")
 	errAlreadyClosed = errors.New("already closed: not connected to the server")
 	errShutdown      = errors.New("client is shutting down")
 )
@@ -43,14 +43,15 @@ var (
 // attempt to connect to the server.
 func NewClient(exchangeName, queueName, addr string) *Client {
 	client := Client{
-		done:           make(chan bool),
-		exchangeName:   exchangeName,
-		logger:         log.New(os.Stdout, "", log.LstdFlags),
-		notifyReady:    make(chan interface{}),
-		queueName:      queueName,
-		reconnectDelay: 5 * time.Second,
-		reInitDelay:    2 * time.Second,
-		resendDelay:    5 * time.Second,
+		ExchangeName:   exchangeName,
+		QueueName:      queueName,
+		ReconnectDelay: 5 * time.Second,
+		ReInitDelay:    2 * time.Second,
+		ResendDelay:    5 * time.Second,
+
+		done:        make(chan bool),
+		logger:      log.New(os.Stdout, "", log.LstdFlags),
+		notifyReady: make(chan interface{}),
 	}
 	go client.handleReconnect(addr)
 	return &client
@@ -72,7 +73,8 @@ func (client *Client) handleReconnect(addr string) {
 			select {
 			case <-client.done:
 				return
-			case <-time.After(client.reconnectDelay):
+			case <-time.After(client.ReconnectDelay):
+				//TODO: implement progressive back-off
 			}
 			continue
 		}
@@ -112,7 +114,8 @@ func (client *Client) handleReInit(conn *amqp.Connection) bool {
 			select {
 			case <-client.done:
 				return true
-			case <-time.After(client.reInitDelay):
+			case <-time.After(client.ReInitDelay):
+				//TODO: implement progressive back-off
 			}
 			continue
 		}
@@ -144,7 +147,7 @@ func (client *Client) init(conn *amqp.Connection) error {
 		return err
 	}
 	err = ch.ExchangeDeclare(
-		client.exchangeName, // name
+		client.ExchangeName, // name
 		"direct",            // type
 		true,                // durable
 		false,               // auto-deleted
@@ -158,7 +161,7 @@ func (client *Client) init(conn *amqp.Connection) error {
 
 	var q amqp.Queue
 	q, err = ch.QueueDeclare(
-		client.queueName, // name
+		client.QueueName, // name
 		true,             // durable
 		false,            // delete when unused
 		false,            // exclusive
@@ -172,7 +175,7 @@ func (client *Client) init(conn *amqp.Connection) error {
 	err = ch.QueueBind(
 		q.Name,              // queue name
 		q.Name,              // routing key
-		client.exchangeName, // exchange
+		client.ExchangeName, // exchange
 		false,
 		nil,
 	)
@@ -227,7 +230,8 @@ func (client *Client) Push(record Record) error {
 			select {
 			case <-client.done:
 				return errShutdown //TODO:  error message to include messageId?
-			case <-time.After(client.resendDelay):
+			case <-time.After(client.ResendDelay):
+				//TODO: implement progressive back-off
 			}
 			continue
 		}
@@ -237,7 +241,8 @@ func (client *Client) Push(record Record) error {
 				client.logger.Println("Push confirmed!")
 				return nil
 			}
-		case <-time.After(client.resendDelay):
+		case <-time.After(client.ResendDelay):
+			//TODO: implement progressive back-off
 		}
 		client.logger.Println("Push didn't confirm. Retrying. MessageId: ", record.GetMessageId()) //TODO:  debug or trace logging, add messageId
 	}
@@ -260,8 +265,8 @@ func (client *Client) UnsafePush(record Record) error {
 
 	return client.channel.PublishWithContext(
 		ctx,                 // context
-		client.exchangeName, // exchange name
-		client.queueName,    // routing key
+		client.ExchangeName, // exchange name
+		client.QueueName,    // routing key
 		false,               // mandatory
 		false,               // immediate
 		amqp.Publishing{ // message
@@ -280,7 +285,8 @@ func (client *Client) UnsafePush(record Record) error {
 // Ignoring this will cause data to build up on the server.
 func (client *Client) Consume() (<-chan amqp.Delivery, error) {
 	if !client.isReady {
-		return nil, errNotConnected
+		// wait for client to be ready
+		<-client.notifyReady
 	}
 
 	if err := client.channel.Qos(
@@ -292,7 +298,7 @@ func (client *Client) Consume() (<-chan amqp.Delivery, error) {
 	}
 
 	return client.channel.Consume(
-		client.queueName,
+		client.QueueName,
 		"",
 		false,
 		false,
@@ -322,3 +328,11 @@ func (client *Client) Close() error {
 	client.isReady = false
 	return nil
 }
+
+// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// Supervised clients
+// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
