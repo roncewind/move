@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"math/rand"
 	"os"
 	"time"
 
@@ -26,6 +27,9 @@ type Client struct {
 	notifyChanClose chan *amqp.Error
 	notifyConfirm   chan amqp.Confirmation
 	notifyReady     chan interface{}
+	reconnectDelay  time.Duration
+	reInitDelay     time.Duration
+	resendDelay     time.Duration
 }
 
 type Record interface {
@@ -53,6 +57,9 @@ func NewClient(exchangeName, queueName, addr string) *Client {
 		logger:      log.New(os.Stdout, "", log.LstdFlags),
 		notifyReady: make(chan interface{}),
 	}
+	client.reconnectDelay = client.ReconnectDelay
+	client.reInitDelay = client.ReInitDelay
+	client.resendDelay = client.ResendDelay
 	go client.handleReconnect(addr)
 	return &client
 }
@@ -68,17 +75,18 @@ func (client *Client) handleReconnect(addr string) {
 		conn, err := client.connect(addr)
 
 		if err != nil {
-			client.logger.Println("Failed to connect. Retrying...")
+			client.logger.Println("Failed to connect. Retrying in", client.reconnectDelay)
 
 			select {
 			case <-client.done:
 				return
-			case <-time.After(client.ReconnectDelay):
-				//TODO: implement progressive back-off
+			case <-time.After(client.reconnectDelay):
+				client.reconnectDelay = client.progressiveDelay(client.reconnectDelay)
 			}
 			continue
 		}
 
+		client.reconnectDelay = client.ReconnectDelay
 		if done := client.handleReInit(conn); done {
 			break
 		}
@@ -109,16 +117,19 @@ func (client *Client) handleReInit(conn *amqp.Connection) bool {
 		err := client.init(conn)
 
 		if err != nil {
-			client.logger.Println("Failed to initialize channel. Retrying...")
+			client.logger.Println("Failed to initialize channel. Retrying in", client.reInitDelay)
 
 			select {
 			case <-client.done:
 				return true
-			case <-time.After(client.ReInitDelay):
-				//TODO: implement progressive back-off
+			case <-time.After(client.reInitDelay):
+				client.reInitDelay = client.progressiveDelay(client.reInitDelay)
 			}
 			continue
 		}
+
+		// reset the init delay
+		client.reInitDelay = client.ReInitDelay
 
 		select {
 		case <-client.done:
@@ -211,6 +222,10 @@ func (client *Client) changeChannel(channel *amqp.Channel) {
 	client.channel.NotifyPublish(client.notifyConfirm)
 }
 
+func (client *Client) progressiveDelay(delay time.Duration) time.Duration {
+	return delay + time.Duration(rand.Intn(int(delay/time.Second)))*time.Second
+}
+
 // ----------------------------------------------------------------------------
 // Push will push data onto the queue and wait for a confirm.
 // If no confirm is received by the resendTimeout,
@@ -226,12 +241,12 @@ func (client *Client) Push(record Record) error {
 	for {
 		err := client.UnsafePush(record)
 		if err != nil {
-			client.logger.Println("Push failed. Retrying. MessageId: ", record.GetMessageId()) //TODO:  debug or trace logging, add messageId
+			client.logger.Println("Push failed. Retrying in", client.resendDelay, ". MessageId:", record.GetMessageId()) //TODO:  debug or trace logging, add messageId
 			select {
 			case <-client.done:
 				return errShutdown //TODO:  error message to include messageId?
-			case <-time.After(client.ResendDelay):
-				//TODO: implement progressive back-off
+			case <-time.After(client.resendDelay):
+				client.resendDelay = client.progressiveDelay(client.resendDelay)
 			}
 			continue
 		}
@@ -239,12 +254,14 @@ func (client *Client) Push(record Record) error {
 		case confirm := <-client.notifyConfirm:
 			if confirm.Ack {
 				client.logger.Println("Push confirmed!")
+				// reset resend delay
+				client.resendDelay = client.ResendDelay
 				return nil
 			}
-		case <-time.After(client.ResendDelay):
-			//TODO: implement progressive back-off
+		case <-time.After(client.resendDelay):
+			client.resendDelay = client.progressiveDelay(client.resendDelay)
 		}
-		client.logger.Println("Push didn't confirm. Retrying. MessageId: ", record.GetMessageId()) //TODO:  debug or trace logging, add messageId
+		client.logger.Println("Push didn't confirm. Retrying in", client.resendDelay, ". MessageId:", record.GetMessageId()) //TODO:  debug or trace logging, add messageId
 	}
 }
 
