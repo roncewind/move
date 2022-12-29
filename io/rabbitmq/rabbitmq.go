@@ -362,13 +362,16 @@ func (client *Client) Close() error {
 	}
 	close(client.done)
 	close(client.notifyReady)
+
+	//FIXME:  connection.Close() closes underlying channels so do we need this?
 	err := client.channel.Close()
 	if err != nil {
-		return err
+		client.logger.Println("channel close error:", err)
 	}
+
 	err = client.connection.Close()
 	if err != nil {
-		return err
+		client.logger.Println("connection close error:", err)
 	}
 
 	client.isReady = false
