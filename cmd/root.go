@@ -6,6 +6,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
+	"time"
 
 	// "errors"
 	"fmt"
@@ -143,7 +144,14 @@ func write(urlString string, exchange string, queue string, recordchan chan reco
 	}
 	printURL(u)
 
-	client := rabbitmq.NewClient(exchange, queue, urlString)
+	//client := rabbitmq.NewClient(exchange, queue, urlString)
+	client := rabbitmq.New(rabbitmq.Client{
+		ExchangeName:   exchange,
+		QueueName:      queue,
+		ReconnectDelay: 5 * time.Second,
+		ReInitDelay:    3 * time.Second,
+		ResendDelay:    1 * time.Second,
+	}, urlString)
 	defer client.Close()
 
 	for {

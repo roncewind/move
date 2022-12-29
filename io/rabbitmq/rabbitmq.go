@@ -44,14 +44,14 @@ var (
 
 // ----------------------------------------------------------------------------
 // New creates a single RabbitMQ client that will automatically
-// attempt to connect to the server.
-func NewClient(exchangeName, queueName, addr string) *Client {
+// attempt to connect to the server.  Reconnection delays are set to defaults.
+func NewClient(exchangeName, queueName, urlString string) *Client {
 	client := Client{
 		ExchangeName:   exchangeName,
 		QueueName:      queueName,
-		ReconnectDelay: 5 * time.Second,
+		ReconnectDelay: 2 * time.Second,
 		ReInitDelay:    2 * time.Second,
-		ResendDelay:    5 * time.Second,
+		ResendDelay:    1 * time.Second,
 
 		done:        make(chan bool),
 		logger:      log.New(os.Stdout, "", log.LstdFlags),
@@ -60,7 +60,35 @@ func NewClient(exchangeName, queueName, addr string) *Client {
 	client.reconnectDelay = client.ReconnectDelay
 	client.reInitDelay = client.ReInitDelay
 	client.resendDelay = client.ResendDelay
-	go client.handleReconnect(addr)
+	go client.handleReconnect(urlString)
+	return &client
+}
+
+// ----------------------------------------------------------------------------
+// New creates a single RabbitMQ client that will automatically
+// attempt to connect to the server.
+// TODO:  error if required fields (exchangeName, queueName, and urlString aren't specified)
+func New(client Client, urlString string) *Client {
+	// set up defaults if none provided
+	if client.ReconnectDelay <= 0 {
+		client.ReconnectDelay = 2 * time.Second
+	}
+	if client.ReInitDelay <= 0 {
+		client.ReInitDelay = 2 * time.Second
+	}
+	if client.ResendDelay <= 0 {
+		client.ResendDelay = 1 * time.Second
+	}
+
+	// set up internals
+	client.done = make(chan bool)
+	client.logger = log.New(os.Stdout, "", log.LstdFlags)
+	client.notifyReady = make(chan interface{})
+
+	client.reconnectDelay = client.ReconnectDelay
+	client.reInitDelay = client.ReInitDelay
+	client.resendDelay = client.ResendDelay
+	go client.handleReconnect(urlString)
 	return &client
 }
 
