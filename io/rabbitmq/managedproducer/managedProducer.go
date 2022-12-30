@@ -1,4 +1,4 @@
-package rabbitmq
+package managedproducer
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"syscall"
 	"time"
+
+	"github.com/roncewind/move/io/rabbitmq"
 )
 
 // ----------------------------------------------------------------------------
@@ -15,7 +17,7 @@ import (
 // the given queue.
 // Workers restart when they are killed or die.
 // Workers respond to standard system signals.
-func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWorkers int, recordchan chan Record) {
+func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWorkers int, recordchan chan rabbitmq.Record) {
 
 	if numberOfWorkers <= 0 {
 		numberOfWorkers = runtime.GOMAXPROCS(0)
@@ -40,7 +42,7 @@ func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWor
 		worker := &Worker{
 			ctx:        ctx,
 			id:         i,
-			client:     NewClient(exchangeName, queueName, urlString),
+			client:     rabbitmq.NewClient(exchangeName, queueName, urlString),
 			recordchan: recordchan,
 		}
 		go worker.Start(workerChan)
@@ -135,8 +137,8 @@ type Worker struct {
 	err        error
 	id         int
 	shutdown   bool
-	client     *Client
-	recordchan chan Record
+	client     *rabbitmq.Client
+	recordchan chan rabbitmq.Record
 }
 
 // ----------------------------------------------------------------------------

@@ -20,6 +20,7 @@ import (
 
 	"github.com/docktermj/go-xyzzy-helpers/logger"
 	"github.com/roncewind/move/io/rabbitmq"
+	"github.com/roncewind/move/io/rabbitmq/managedproducer"
 	"github.com/roncewind/szrecord"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -143,7 +144,7 @@ func write(urlString string, exchangeName string, queueName string, recordchan c
 	}
 	printURL(u)
 
-	rabbitmq.StartManagedProducer(exchangeName, queueName, urlString, 3, recordchan)
+	managedproducer.StartManagedProducer(exchangeName, queueName, urlString, 3, recordchan)
 	// client := rabbitmq.NewClient(exchangeName, queueName, urlString)
 	// client := rabbitmq.Init(&rabbitmq.Client{
 	// 	ExchangeName:   exchangeName,
