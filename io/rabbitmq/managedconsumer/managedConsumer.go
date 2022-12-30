@@ -198,7 +198,7 @@ func (worker *Worker) doWork() (err error) {
 						// logger.LogMessage(MessageIdFormat, 2002, withInfoErr.Error())
 					} else {
 						//TODO:  what do we do with the record here?
-						fmt.Printf("Record[%s] Added: %s:%s:%s\n", delivery.MessageId, loadID, record.DataSource, record.Id)
+						fmt.Printf("Record added: %s:%s:%s:%s\n", delivery.MessageId, loadID, record.DataSource, record.Id)
 						fmt.Printf("WithInfo: %s\n", withInfo)
 					}
 				} else {
@@ -207,7 +207,7 @@ func (worker *Worker) doWork() (err error) {
 						fmt.Println(addRecordErr.Error())
 						// logger.LogMessage(MessageIdFormat, 2003, addRecordErr.Error())
 					} else {
-						fmt.Printf("Record[%s] Added: %s:%s:%s\n", delivery.MessageId, loadID, record.DataSource, record.Id)
+						fmt.Printf("Record added: %s:%s:%s:%s\n", delivery.MessageId, loadID, record.DataSource, record.Id)
 					}
 				}
 
