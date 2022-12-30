@@ -6,7 +6,6 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
-	"time"
 
 	// "errors"
 	"fmt"
@@ -83,7 +82,7 @@ var RootCmd = &cobra.Command{
 			viper.IsSet("inputQueue") {
 
 			waitGroup.Add(2)
-			recordchan := make(chan record, 10)
+			recordchan := make(chan rabbitmq.Record, 10)
 			go read(viper.GetString("inputURL"), recordchan)
 			go write(viper.GetString("outputURL"), viper.GetString("exchange"), viper.GetString("inputQueue"), recordchan)
 			waitGroup.Wait()
@@ -94,7 +93,7 @@ var RootCmd = &cobra.Command{
 }
 
 // ----------------------------------------------------------------------------
-func read(urlString string, recordchan chan record) {
+func read(urlString string, recordchan chan rabbitmq.Record) {
 
 	defer waitGroup.Done()
 
@@ -134,7 +133,7 @@ func read(urlString string, recordchan chan record) {
 }
 
 // ----------------------------------------------------------------------------
-func write(urlString string, exchange string, queue string, recordchan chan record) {
+func write(urlString string, exchangeName string, queueName string, recordchan chan rabbitmq.Record) {
 	fmt.Println("Enter write")
 	defer waitGroup.Done()
 	fmt.Println("Write URL string: ", urlString)
@@ -144,35 +143,36 @@ func write(urlString string, exchange string, queue string, recordchan chan reco
 	}
 	printURL(u)
 
-	//client := rabbitmq.NewClient(exchange, queue, urlString)
-	client := rabbitmq.Init(&rabbitmq.Client{
-		ExchangeName:   exchange,
-		QueueName:      queue,
-		ReconnectDelay: 5 * time.Second,
-		ReInitDelay:    3 * time.Second,
-		ResendDelay:    1 * time.Second,
-	}, urlString)
-	defer client.Close()
+	rabbitmq.StartManagedProducer(exchangeName, queueName, urlString, 3, recordchan)
+	// client := rabbitmq.NewClient(exchangeName, queueName, urlString)
+	// client := rabbitmq.Init(&rabbitmq.Client{
+	// 	ExchangeName:   exchangeName,
+	// 	QueueName:      queueName,
+	// 	ReconnectDelay: 5 * time.Second,
+	// 	ReInitDelay:    3 * time.Second,
+	// 	ResendDelay:    1 * time.Second,
+	// }, urlString)
+	// defer client.Close()
 
-	for {
-		// Wait for record to be assigned.
-		record, result := <-recordchan
+	// for {
+	// 	// Wait for record to be assigned.
+	// 	record, result := <-recordchan
 
-		if !result && len(recordchan) == 0 {
-			// This means the channel is empty and closed.
-			fmt.Println("all records moved, recordchan closed")
-			return
-		}
+	// 	if !result && len(recordchan) == 0 {
+	// 		// This means the channel is empty and closed.
+	// 		fmt.Println("all records moved, recordchan closed")
+	// 		return
+	// 	}
 
-		if err := client.Push(record); err != nil {
-			fmt.Println("Failed to publish record line: ", record.lineNumber)
-			fmt.Println("ERROR: ", err)
-		}
-	}
+	// 	if err := client.Push(record); err != nil {
+	// 		fmt.Println("Failed to publish record:", record.GetMessageId())
+	// 		fmt.Println("Error: ", err)
+	// 	}
+	// }
 }
 
 // ----------------------------------------------------------------------------
-func readJSONLResource(jsonURL string, recordchan chan record) {
+func readJSONLResource(jsonURL string, recordchan chan rabbitmq.Record) {
 	response, err := http.Get(jsonURL)
 	if err != nil {
 		panic(err)
@@ -200,7 +200,7 @@ func readJSONLResource(jsonURL string, recordchan chan record) {
 }
 
 // ----------------------------------------------------------------------------
-func readJSONLFile(jsonFile string, recordchan chan record) {
+func readJSONLFile(jsonFile string, recordchan chan rabbitmq.Record) {
 	file, err := os.Open(jsonFile)
 	if err != nil {
 		panic(err)
