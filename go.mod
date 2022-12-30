@@ -6,6 +6,7 @@ require (
 	github.com/docktermj/go-xyzzy-helpers v0.2.2
 	github.com/rabbitmq/amqp091-go v1.5.0
 	github.com/roncewind/szrecord v0.0.6
+	github.com/senzing/g2-sdk-go v0.2.4
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
 )
@@ -18,6 +19,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
+	github.com/senzing/go-logging v1.1.1 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
