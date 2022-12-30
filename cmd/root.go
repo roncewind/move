@@ -145,7 +145,7 @@ func write(urlString string, exchange string, queue string, recordchan chan reco
 	printURL(u)
 
 	//client := rabbitmq.NewClient(exchange, queue, urlString)
-	client := rabbitmq.Init(rabbitmq.Client{
+	client := rabbitmq.Init(&rabbitmq.Client{
 		ExchangeName:   exchange,
 		QueueName:      queue,
 		ReconnectDelay: 5 * time.Second,
