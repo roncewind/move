@@ -336,7 +336,7 @@ func (client *Client) Consume() (<-chan amqp.Delivery, error) {
 	}
 
 	if err := client.channel.Qos(
-		1,     // prefetch count (should set to the number of load goroutines)
+		1,     // prefetch count (should set to the number of load goroutines?)
 		0,     // prefetch size
 		false, // global
 	); err != nil {
@@ -345,11 +345,11 @@ func (client *Client) Consume() (<-chan amqp.Delivery, error) {
 
 	return client.channel.Consume(
 		client.QueueName, // queue
-		"",               // consumer
+		"",               // consumer uid, blank auto-generates a uid
 		false,            // auto-ack
 		false,            // exclusive
-		false,            // no-local
-		false,            // no-wait
+		false,            // no-local (not supported by rabbitmq)
+		false,            // no-wait, false seems safest
 		nil,              // args
 	)
 }
