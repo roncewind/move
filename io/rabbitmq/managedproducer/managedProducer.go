@@ -73,11 +73,11 @@ func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWor
 			if shutdownCount == 0 {
 				fmt.Println("All workers shutdown, exiting")
 				sigShutdown <- struct{}{}
-				// os.Exit(0) //FIXME: rework shutdown so it doesn't exit. (just return?)
 			}
 		}
 	}()
 
+	//FIXME:  return blocking channel
 	<-sigShutdown
 }
 
@@ -125,7 +125,6 @@ func gracefulShutdown(cancel func(), timeout time.Duration) chan struct{} {
 		// wait for timeout to finish
 		<-timeoutSignal
 		wait <- struct{}{}
-		// os.Exit(0) //FIXME: shouldn't exit here, should just push into wait?
 	}()
 
 	return wait

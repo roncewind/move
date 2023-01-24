@@ -252,6 +252,7 @@ func (client *Client) changeChannel(channel *amqp.Channel) {
 }
 
 func (client *Client) progressiveDelay(delay time.Duration) time.Duration {
+	//TODO:  seed random number generator
 	return delay + time.Duration(rand.Intn(int(delay/time.Second)))*time.Second
 }
 
@@ -377,11 +378,3 @@ func (client *Client) Close() error {
 	client.isReady = false
 	return nil
 }
-
-// ----------------------------------------------------------------------------
-// ----------------------------------------------------------------------------
-// ----------------------------------------------------------------------------
-// Supervised clients
-// ----------------------------------------------------------------------------
-// ----------------------------------------------------------------------------
-// ----------------------------------------------------------------------------
