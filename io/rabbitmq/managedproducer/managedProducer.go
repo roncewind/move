@@ -19,9 +19,10 @@ import (
 
 // define a structure that will implement the Job interface
 type RabbitJob struct {
+	clients chan *rabbitmq.Client
 	id      string
-	jobQ    chan<- workerpool.Job
-	timeout int
+	jobQ    chan<- workerpool.Job //used to return jobs to the queue if they fail
+	record  rabbitmq.Record
 }
 
 // ----------------------------------------------------------------------------
@@ -34,12 +35,15 @@ var _ workerpool.Job = (*RabbitJob)(nil)
 // Job interface implementation
 func (j *RabbitJob) Execute() error {
 	fmt.Println(j.id, "executing")
+	client := <-j.clients
+	defer func() { j.clients <- client }()
+	return client.Push(j.record)
 
-	return nil
 }
 
 func (j *RabbitJob) OnError(err error) {
 	fmt.Println(j.id, "error", err)
+	j.jobQ <- j
 }
 
 // ----------------------------------------------------------------------------
@@ -50,66 +54,84 @@ func (j *RabbitJob) OnError(err error) {
 // Workers respond to standard system signals.
 func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWorkers int, recordchan chan rabbitmq.Record) chan struct{} {
 
+	//default to the max number of OS threads
 	if numberOfWorkers <= 0 {
 		numberOfWorkers = runtime.GOMAXPROCS(0)
 	}
 	fmt.Println("Number of producer workers:", numberOfWorkers)
 
+	ctx, cancel := context.WithCancel(context.Background())
+
+	rabbitmqClients := make(chan *rabbitmq.Client, numberOfWorkers)
+	go createClients(ctx, rabbitmqClients, numberOfWorkers, exchangeName, queueName, urlString)
+
 	// make a buffered channel with the space for all workers
 	//  workers will signal on this channel if they die
-	workerChan := make(chan *Worker, numberOfWorkers)
+	jobQ := make(chan workerpool.Job, numberOfWorkers)
+	go loadJobQueue(ctx, rabbitmqClients, jobQ, recordchan)
+
 	// PONDER:  close the workerChan here or in the goroutine?
 	//  probably doesn't matter in this case, but something to keep an eye on.
-	defer close(workerChan)
+	// defer close(jobQ)
 
-	ctx, cancel := context.WithCancel(context.Background())
 	// when shutdown signalled by OS signal, wait for 15 seconds for graceful shutdown
 	//	 to complete, then force
 	sigShutdown := gracefulShutdown(cancel, 15*time.Second)
 
-	// start up a number of workers.
-	for i := 0; i < numberOfWorkers; i++ {
-		i := i
-		worker := &Worker{
-			ctx:        ctx,
-			id:         i,
-			client:     rabbitmq.NewClient(exchangeName, queueName, urlString),
-			recordchan: recordchan,
-		}
-		go worker.Start(workerChan)
+	wp, _ := workerpool.NewWorkerPool(numberOfWorkers, jobQ)
+	wp.Start(ctx)
+
+	// return blocking channel
+	return sigShutdown
+}
+
+// ----------------------------------------------------------------------------
+
+// create a number of clients and put them into the client queue
+func createClients(ctx context.Context, rabbitmqClients chan *rabbitmq.Client, numOfClients int, exchangeName, queueName, urlString string) {
+	for i := 0; i < numOfClients; i++ {
+		rabbitmqClients <- rabbitmq.NewClient(exchangeName, queueName, urlString)
 	}
+}
 
-	// Monitor a chan and start a new worker if one has stopped:
-	//   - read the channel
-	//	 - block until something is written
-	//   - check if worker is shutting down
-	//	 	- if not, re-start the worker
+// ----------------------------------------------------------------------------
+
+// create Jobs and put them into the job queue
+func loadJobQueue(ctx context.Context, rabbitmqClients chan *rabbitmq.Client, jobQ chan workerpool.Job, recordchan chan rabbitmq.Record) {
+
+	for record := range orDone(ctx, recordchan) {
+		jobQ <- &RabbitJob{
+			clients: rabbitmqClients,
+			id:      record.GetMessageId(),
+			jobQ:    jobQ,
+		}
+	}
+}
+
+// ----------------------------------------------------------------------------
+
+// OrDone encapsulates the for-select idiom used for many goroutines
+// the idea is that it makes the code easier to read
+func orDone(ctx context.Context, c <-chan rabbitmq.Record) <-chan rabbitmq.Record {
+	valueStream := make(chan rabbitmq.Record)
 	go func() {
-		shutdownCount := numberOfWorkers
-		for worker := range workerChan {
-
-			if worker.shutdown {
-				shutdownCount--
-			} else {
-				// log the error
-				fmt.Printf("Worker %d stopped with err: %s\n", worker.id, worker.err)
-				// reset err
-				worker.err = nil
-
-				// a goroutine has ended, restart it
-				go worker.Start(workerChan)
-				fmt.Printf("Worker %d restarted\n", worker.id)
-			}
-
-			if shutdownCount == 0 {
-				fmt.Println("All workers shutdown, exiting")
-				sigShutdown <- struct{}{}
+		defer close(valueStream)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case v, ok := <-c:
+				if !ok {
+					return
+				}
+				select {
+				case valueStream <- v:
+				case <-ctx.Done():
+				}
 			}
 		}
 	}()
-
-	//FIXME:  return blocking channel
-	<-sigShutdown
+	return valueStream
 }
 
 // ----------------------------------------------------------------------------
