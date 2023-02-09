@@ -48,6 +48,7 @@ func (j *RabbitJob) Execute() error {
 	return nil
 }
 
+// Whenever Execute() returns an error or panics, this is called
 func (j *RabbitJob) OnError(err error) {
 	fmt.Println(j.id, "error", err)
 	j.jobQ <- j
@@ -80,19 +81,26 @@ func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWor
 	jobQ := make(chan workerpool.Job, numberOfWorkers)
 	go loadJobQueue(ctx, clientPool, newClientStream, jobQ, recordchan)
 
-	// when shutdown signalled by OS signal, wait for 15 seconds for graceful shutdown
-	//	 to complete, then force
-	sigShutdown := gracefulShutdown(cancel, 15*time.Second)
-
+	// create and start up the workerpool
 	wp, _ := workerpool.NewWorkerPool(numberOfWorkers, jobQ)
 	wp.Start(ctx)
 
-	// PONDER:  When do we close the channels we made here?
-	//  probably doesn't matter in this case, but something to keep an eye on.
+	// when shutdown signalled by OS signal, wait for 15 seconds for graceful shutdown
+	//	 to complete, then force
+	cleanup := gracefulShutdown(cancel, 15*time.Second)
+	sigShutdown := make(chan struct{})
+
+	// clean up after ourselves
 	go func() {
-		defer close(jobQ)
-		defer close(clientPool)
-		<-sigShutdown
+		<-cleanup
+		close(jobQ)
+		close(clientPool)
+		// drain the client pool, closing rabbit mq connections
+		for len(clientPool) > 0 {
+			client := <-clientPool
+			client.Close()
+		}
+		sigShutdown <- struct{}{}
 	}()
 
 	// return blocking channel
@@ -115,11 +123,14 @@ func clientGenerator(ctx context.Context, exchangeName, queueName, urlString str
 	clientStream := make(chan *rabbitmq.Client)
 	go func() {
 		defer close(clientStream)
+		count := 0
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case clientStream <- rabbitmq.NewClient(exchangeName, queueName, urlString):
+				count++
+				fmt.Println("Created client:", count)
 			}
 		}
 	}()
