@@ -95,8 +95,10 @@ func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWor
 			client := <-clientPool
 			client.Close()
 		}
-		client := <-newClientStream
-		if client != nil {
+
+		//FIXME:  arg, there's always one rabbit client that doesn't get closed!
+		if len(newClientStream) > 0 {
+			client := <-newClientStream
 			client.Close()
 		}
 	}
@@ -141,7 +143,6 @@ func clientGenerator(ctx context.Context, exchangeName, queueName, urlString str
 
 // create Jobs and put them into the job queue
 func loadJobQueue(ctx context.Context, clientPool chan *rabbitmq.Client, newClientStream <-chan *rabbitmq.Client, jobQ chan workerpool.Job, recordchan chan rabbitmq.Record) {
-
 	for record := range orDone(ctx, recordchan) {
 		jobQ <- &RabbitJob{
 			clientPool:      clientPool,
