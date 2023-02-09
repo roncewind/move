@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
@@ -47,6 +48,7 @@ var (
 // New creates a single RabbitMQ client that will automatically
 // attempt to connect to the server.  Reconnection delays are set to defaults.
 func NewClient(exchangeName, queueName, urlString string) *Client {
+	fmt.Println("******NewClient************")
 	client := Client{
 		ExchangeName:   exchangeName,
 		QueueName:      queueName,
@@ -370,6 +372,7 @@ func (client *Client) Consume() (<-chan amqp.Delivery, error) {
 
 // Close will cleanly shutdown the channel and connection.
 func (client *Client) Close() error {
+	fmt.Println("****************Close client***************")
 	if !client.isReady {
 		return errAlreadyClosed
 	}

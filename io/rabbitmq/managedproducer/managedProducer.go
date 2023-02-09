@@ -85,14 +85,9 @@ func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWor
 	wp, _ := workerpool.NewWorkerPool(numberOfWorkers, jobQ)
 	wp.Start(ctx)
 
-	// when shutdown signalled by OS signal, wait for 15 seconds for graceful shutdown
-	//	 to complete, then force
-	cleanup := gracefulShutdown(cancel, 15*time.Second)
-	sigShutdown := make(chan struct{})
-
 	// clean up after ourselves
-	go func() {
-		<-cleanup
+	cleanup := func() {
+		cancel()
 		close(jobQ)
 		close(clientPool)
 		// drain the client pool, closing rabbit mq connections
@@ -100,8 +95,15 @@ func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWor
 			client := <-clientPool
 			client.Close()
 		}
-		sigShutdown <- struct{}{}
-	}()
+		client := <-newClientStream
+		if client != nil {
+			client.Close()
+		}
+	}
+
+	// when shutdown signalled by OS signal, wait for 15 seconds for graceful shutdown
+	//	 to complete, then force
+	sigShutdown := gracefulShutdown(cleanup, 15*time.Second)
 
 	// return blocking channel
 	return sigShutdown
@@ -112,6 +114,7 @@ func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWor
 // create a number of clients and put them into the client queue
 func createClients(ctx context.Context, rabbitmqClients chan *rabbitmq.Client, numOfClients int, clientStream <-chan *rabbitmq.Client) {
 	for i := 0; i < numOfClients; i++ {
+		fmt.Println("pooling client")
 		rabbitmqClients <- <-clientStream
 	}
 }
@@ -123,14 +126,11 @@ func clientGenerator(ctx context.Context, exchangeName, queueName, urlString str
 	clientStream := make(chan *rabbitmq.Client)
 	go func() {
 		defer close(clientStream)
-		count := 0
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case clientStream <- rabbitmq.NewClient(exchangeName, queueName, urlString):
-				count++
-				fmt.Println("Created client:", count)
 			}
 		}
 	}()
@@ -182,7 +182,7 @@ func orDone(ctx context.Context, c <-chan rabbitmq.Record) <-chan rabbitmq.Recor
 // ----------------------------------------------------------------------------
 
 // gracefulShutdown waits for terminating syscalls then signals workers to shutdown
-func gracefulShutdown(cancel func(), timeout time.Duration) chan struct{} {
+func gracefulShutdown(cleanup func(), timeout time.Duration) chan struct{} {
 	wait := make(chan struct{})
 
 	go func() {
@@ -217,9 +217,9 @@ func gracefulShutdown(cancel func(), timeout time.Duration) chan struct{} {
 
 		defer timeoutFunc.Stop()
 
-		// cancel the context
-		cancel()
-		fmt.Println("Shutdown signalled.")
+		// clean-up time
+		fmt.Println("Shutdown signalled, time to clean-up")
+		cleanup()
 
 		// wait for timeout to finish
 		<-timeoutSignal
