@@ -43,6 +43,7 @@ var (
 )
 
 // ----------------------------------------------------------------------------
+
 // New creates a single RabbitMQ client that will automatically
 // attempt to connect to the server.  Reconnection delays are set to defaults.
 func NewClient(exchangeName, queueName, urlString string) *Client {
@@ -65,6 +66,7 @@ func NewClient(exchangeName, queueName, urlString string) *Client {
 }
 
 // ----------------------------------------------------------------------------
+
 // Init initializes a single RabbitMQ client that will automatically
 // attempt to connect to the server.
 // TODO:  error if required fields (exchangeName, queueName, and urlString aren't specified)
@@ -94,6 +96,7 @@ func Init(client *Client, urlString string) *Client {
 }
 
 // ----------------------------------------------------------------------------
+
 // handleReconnect will wait for a connection error on
 // notifyConnClose, and then continuously attempt to reconnect.
 func (client *Client) handleReconnect(addr string) {
@@ -123,6 +126,7 @@ func (client *Client) handleReconnect(addr string) {
 }
 
 // ----------------------------------------------------------------------------
+
 // connect will create a new AMQP connection
 func (client *Client) connect(addr string) (*amqp.Connection, error) {
 	conn, err := amqp.Dial(addr)
@@ -137,6 +141,7 @@ func (client *Client) connect(addr string) (*amqp.Connection, error) {
 }
 
 // ----------------------------------------------------------------------------
+
 // handleReconnect will wait for a channel error
 // and then continuously attempt to re-initialize both channels
 func (client *Client) handleReInit(conn *amqp.Connection) bool {
@@ -173,6 +178,7 @@ func (client *Client) handleReInit(conn *amqp.Connection) bool {
 }
 
 // ----------------------------------------------------------------------------
+
 // init will initialize channel, declare the exchange, and declare the queue
 func (client *Client) init(conn *amqp.Connection) error {
 	ch, err := conn.Channel()
@@ -232,6 +238,7 @@ func (client *Client) init(conn *amqp.Connection) error {
 }
 
 // ----------------------------------------------------------------------------
+
 // changeConnection takes a new connection to the queue,
 // and updates the close listener to reflect this.
 func (client *Client) changeConnection(connection *amqp.Connection) {
@@ -241,6 +248,7 @@ func (client *Client) changeConnection(connection *amqp.Connection) {
 }
 
 // ----------------------------------------------------------------------------
+
 // changeChannel takes a new channel to the queue,
 // and updates the channel listeners to reflect this.
 func (client *Client) changeChannel(channel *amqp.Channel) {
@@ -257,6 +265,7 @@ func (client *Client) progressiveDelay(delay time.Duration) time.Duration {
 }
 
 // ----------------------------------------------------------------------------
+
 // Push will push data onto the queue and wait for a confirm.
 // If no confirm is received by the resendTimeout,
 // it re-sends messages until a confirm is received.
@@ -296,6 +305,7 @@ func (client *Client) Push(record Record) error {
 }
 
 // ----------------------------------------------------------------------------
+
 // UnsafePush will push to the queue without checking for
 // confirmation. It returns an error if it fails to connect.
 // No guarantees are provided for if the server will
@@ -326,6 +336,7 @@ func (client *Client) UnsafePush(record Record) error {
 }
 
 // ----------------------------------------------------------------------------
+
 // Consume will continuously put queue items on the channel.
 // It is required to call delivery.Ack when it has been
 // successfully processed, or delivery.Nack when it fails.
@@ -356,6 +367,7 @@ func (client *Client) Consume() (<-chan amqp.Delivery, error) {
 }
 
 // ----------------------------------------------------------------------------
+
 // Close will cleanly shutdown the channel and connection.
 func (client *Client) Close() error {
 	if !client.isReady {

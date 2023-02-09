@@ -10,14 +10,115 @@ import (
 	"time"
 
 	"github.com/roncewind/move/io/rabbitmq"
+	"github.com/roncewind/workerpool"
 )
 
 // ----------------------------------------------------------------------------
+// Job implementation
+// ----------------------------------------------------------------------------
+
+// define a structure that will implement the Job interface
+type RabbitJob struct {
+	id      string
+	jobQ    chan<- workerpool.Job
+	timeout int
+}
+
+// ----------------------------------------------------------------------------
+
+// make sure RabbitJob implements the Job interface
+var _ workerpool.Job = (*RabbitJob)(nil)
+
+// ----------------------------------------------------------------------------
+
+// Job interface implementation
+func (j *RabbitJob) Execute() error {
+	fmt.Println(j.id, "executing")
+
+	return nil
+}
+
+func (j *RabbitJob) OnError(err error) {
+	fmt.Println(j.id, "error", err)
+}
+
+// ----------------------------------------------------------------------------
+
 // Starts a number of workers that push Records in the record channel to
 // the given queue.
 // Workers restart when they are killed or die.
 // Workers respond to standard system signals.
-func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWorkers int, recordchan chan rabbitmq.Record) {
+func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWorkers int, recordchan chan rabbitmq.Record) chan struct{} {
+
+	if numberOfWorkers <= 0 {
+		numberOfWorkers = runtime.GOMAXPROCS(0)
+	}
+	fmt.Println("Number of producer workers:", numberOfWorkers)
+
+	// make a buffered channel with the space for all workers
+	//  workers will signal on this channel if they die
+	workerChan := make(chan *Worker, numberOfWorkers)
+	// PONDER:  close the workerChan here or in the goroutine?
+	//  probably doesn't matter in this case, but something to keep an eye on.
+	defer close(workerChan)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	// when shutdown signalled by OS signal, wait for 15 seconds for graceful shutdown
+	//	 to complete, then force
+	sigShutdown := gracefulShutdown(cancel, 15*time.Second)
+
+	// start up a number of workers.
+	for i := 0; i < numberOfWorkers; i++ {
+		i := i
+		worker := &Worker{
+			ctx:        ctx,
+			id:         i,
+			client:     rabbitmq.NewClient(exchangeName, queueName, urlString),
+			recordchan: recordchan,
+		}
+		go worker.Start(workerChan)
+	}
+
+	// Monitor a chan and start a new worker if one has stopped:
+	//   - read the channel
+	//	 - block until something is written
+	//   - check if worker is shutting down
+	//	 	- if not, re-start the worker
+	go func() {
+		shutdownCount := numberOfWorkers
+		for worker := range workerChan {
+
+			if worker.shutdown {
+				shutdownCount--
+			} else {
+				// log the error
+				fmt.Printf("Worker %d stopped with err: %s\n", worker.id, worker.err)
+				// reset err
+				worker.err = nil
+
+				// a goroutine has ended, restart it
+				go worker.Start(workerChan)
+				fmt.Printf("Worker %d restarted\n", worker.id)
+			}
+
+			if shutdownCount == 0 {
+				fmt.Println("All workers shutdown, exiting")
+				sigShutdown <- struct{}{}
+			}
+		}
+	}()
+
+	//FIXME:  return blocking channel
+	<-sigShutdown
+}
+
+// ----------------------------------------------------------------------------
+
+// Starts a number of workers that push Records in the record channel to
+// the given queue.
+// Workers restart when they are killed or die.
+// Workers respond to standard system signals.
+func StartManagedProducerXXX(exchangeName, queueName, urlString string, numberOfWorkers int, recordchan chan rabbitmq.Record) {
 
 	if numberOfWorkers <= 0 {
 		numberOfWorkers = runtime.GOMAXPROCS(0)
@@ -179,8 +280,8 @@ func (worker *Worker) doWork() (err error) {
 			}
 			fmt.Printf("Worker %d shutdown with cancel, after %.1f.\n", worker.id, time.Since(now).Seconds())
 			return nil
-		case record, result := <-worker.recordchan:
-			if !result && len(worker.recordchan) == 0 {
+		case record, ok := <-worker.recordchan:
+			if !ok && len(worker.recordchan) == 0 {
 				// This means the channel is empty and closed.
 				fmt.Println("All records moved, recordchan closed")
 				worker.client.Close()
