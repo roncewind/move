@@ -144,7 +144,7 @@ func write(urlString string, exchangeName string, queueName string, recordchan c
 	}
 	printURL(u)
 
-	<-managedproducer.StartManagedProducer(exchangeName, queueName, urlString, 1, recordchan)
+	<-managedproducer.StartManagedProducer(exchangeName, queueName, urlString, 0, recordchan)
 	fmt.Println("So long and thanks for all the fish.")
 	// client := rabbitmq.NewClient(exchangeName, queueName, urlString)
 	// client := rabbitmq.Init(&rabbitmq.Client{
