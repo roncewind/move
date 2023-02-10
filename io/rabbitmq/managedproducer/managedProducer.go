@@ -19,11 +19,11 @@ import (
 
 // define a structure that will implement the Job interface
 type RabbitJob struct {
-	clientPool      chan *rabbitmq.Client
-	id              string
-	jobQ            chan<- workerpool.Job //used to return jobs to the queue if they fail
-	newClientStream <-chan *rabbitmq.Client
-	record          rabbitmq.Record
+	clientPool  chan *rabbitmq.Client
+	id          string
+	jobQ        chan<- workerpool.Job //used to return jobs to the queue if they fail
+	newClientFn func() *rabbitmq.Client
+	record      rabbitmq.Record
 }
 
 // ----------------------------------------------------------------------------
@@ -33,20 +33,24 @@ var _ workerpool.Job = (*RabbitJob)(nil)
 
 // ----------------------------------------------------------------------------
 
-// Job interface implementation
+// Job interface implementation:
+// Execute() is run once for each Job
 func (j *RabbitJob) Execute() error {
 	fmt.Println(j.id, "executing")
 	client := <-j.clientPool
 	err := client.Push(j.record)
 	if err != nil {
 		//put a new client in the pool, dropping the current one
-		j.clientPool <- <-j.newClientStream
+		j.clientPool <- j.newClientFn()
+		client.Close()
 		return err
 	}
 	// return the client to the pool when done
 	j.clientPool <- client
 	return nil
 }
+
+// ----------------------------------------------------------------------------
 
 // Whenever Execute() returns an error or panics, this is called
 func (j *RabbitJob) OnError(err error) {
@@ -71,15 +75,15 @@ func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWor
 	ctx, cancel := context.WithCancel(context.Background())
 
 	clientPool := make(chan *rabbitmq.Client, numberOfWorkers)
-	newClientStream := clientGenerator(ctx, exchangeName, queueName, urlString)
+	newClientFn := func() *rabbitmq.Client { return rabbitmq.NewClient(exchangeName, queueName, urlString) }
 
 	// populate an initial client pool
-	go createClients(ctx, clientPool, numberOfWorkers, newClientStream)
+	go createClients(ctx, clientPool, numberOfWorkers, newClientFn)
 
 	// make a buffered channel with the space for all workers
 	//  workers will signal on this channel if they die
 	jobQ := make(chan workerpool.Job, numberOfWorkers)
-	go loadJobQueue(ctx, clientPool, newClientStream, jobQ, recordchan)
+	go loadJobQueue(ctx, clientPool, newClientFn, jobQ, recordchan)
 
 	// create and start up the workerpool
 	wp, _ := workerpool.NewWorkerPool(numberOfWorkers, jobQ)
@@ -95,17 +99,11 @@ func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWor
 			client := <-clientPool
 			client.Close()
 		}
-
-		//FIXME:  arg, there's always one rabbit client that doesn't get closed!
-		if len(newClientStream) > 0 {
-			client := <-newClientStream
-			client.Close()
-		}
 	}
 
-	// when shutdown signalled by OS signal, wait for 15 seconds for graceful shutdown
+	// when shutdown signalled by OS signal, wait for 5 seconds for graceful shutdown
 	//	 to complete, then force
-	sigShutdown := gracefulShutdown(cleanup, 15*time.Second)
+	sigShutdown := gracefulShutdown(cleanup, 5*time.Second)
 
 	// return blocking channel
 	return sigShutdown
@@ -114,42 +112,23 @@ func StartManagedProducer(exchangeName, queueName, urlString string, numberOfWor
 // ----------------------------------------------------------------------------
 
 // create a number of clients and put them into the client queue
-func createClients(ctx context.Context, rabbitmqClients chan *rabbitmq.Client, numOfClients int, clientStream <-chan *rabbitmq.Client) {
+func createClients(ctx context.Context, rabbitmqClients chan *rabbitmq.Client, numOfClients int, newClientFn func() *rabbitmq.Client) {
 	for i := 0; i < numOfClients; i++ {
-		fmt.Println("pooling client")
-		rabbitmqClients <- <-clientStream
+		rabbitmqClients <- newClientFn()
 	}
 }
 
 // ----------------------------------------------------------------------------
 
-// generate a stream of new RabbitMQ clients as needed
-func clientGenerator(ctx context.Context, exchangeName, queueName, urlString string) <-chan *rabbitmq.Client {
-	clientStream := make(chan *rabbitmq.Client)
-	go func() {
-		defer close(clientStream)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case clientStream <- rabbitmq.NewClient(exchangeName, queueName, urlString):
-			}
-		}
-	}()
-	return clientStream
-}
-
-// ----------------------------------------------------------------------------
-
 // create Jobs and put them into the job queue
-func loadJobQueue(ctx context.Context, clientPool chan *rabbitmq.Client, newClientStream <-chan *rabbitmq.Client, jobQ chan workerpool.Job, recordchan chan rabbitmq.Record) {
+func loadJobQueue(ctx context.Context, clientPool chan *rabbitmq.Client, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, recordchan chan rabbitmq.Record) {
 	for record := range orDone(ctx, recordchan) {
 		jobQ <- &RabbitJob{
-			clientPool:      clientPool,
-			id:              record.GetMessageId(),
-			jobQ:            jobQ,
-			newClientStream: newClientStream,
-			record:          record,
+			clientPool:  clientPool,
+			id:          record.GetMessageId(),
+			jobQ:        jobQ,
+			newClientFn: newClientFn,
+			record:      record,
 		}
 	}
 }
