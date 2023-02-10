@@ -341,16 +341,20 @@ func (client *Client) UnsafePush(record Record) error {
 // It is required to call delivery.Ack when it has been
 // successfully processed, or delivery.Nack when it fails.
 // Ignoring this will cause data to build up on the server.
-func (client *Client) Consume() (<-chan amqp.Delivery, error) {
+func (client *Client) Consume(prefetch int) (<-chan amqp.Delivery, error) {
 	if !client.isReady {
 		// wait for client to be ready
 		<-client.notifyReady
 	}
 
+	if prefetch < 0 {
+		prefetch = 1
+	}
+
 	if err := client.channel.Qos(
-		1,     // prefetch count (should set to the number of load goroutines?)
-		0,     // prefetch size
-		false, // global
+		prefetch, // prefetch count (should set to the number of load goroutines?)
+		0,        // prefetch size
+		false,    // global
 	); err != nil {
 		return nil, err
 	}

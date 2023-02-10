@@ -109,7 +109,7 @@ func StartManagedConsumer(exchangeName, queueName, urlString string, numberOfWor
 	// make a buffered channel with the space for all workers
 	//  workers will signal on this channel if they die
 	jobQ := make(chan workerpool.Job, numberOfWorkers)
-	go loadJobQueue(ctx, newClientFn, jobQ, engine, withInfo)
+	go loadJobQueue(ctx, newClientFn, jobQ, numberOfWorkers, engine, withInfo)
 
 	// create and start up the workerpool
 	wp, _ := workerpool.NewWorkerPool(numberOfWorkers, jobQ)
@@ -147,14 +147,16 @@ func StartManagedConsumer(exchangeName, queueName, urlString string, numberOfWor
 // ----------------------------------------------------------------------------
 
 // create Jobs and put them into the job queue
-func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, engine g2engine.G2engine, withInfo bool) {
+func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, prefetch int, engine g2engine.G2engine, withInfo bool) {
 	client := newClientFn()
 	defer client.Close()
-	deliveries, err := client.Consume()
+	deliveries, err := client.Consume(prefetch)
 	if err != nil {
 		fmt.Println("Error getting delivery channel:", err)
 		return
 	}
+
+	//PONDER: what if something fails here?  how can we recover?
 	for delivery := range orDone(ctx, deliveries) {
 		jobQ <- &RabbitJob{
 			ctx:      ctx,
