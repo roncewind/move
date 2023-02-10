@@ -6,6 +6,7 @@ require (
 	github.com/docktermj/go-xyzzy-helpers v0.2.2
 	github.com/rabbitmq/amqp091-go v1.5.0
 	github.com/roncewind/szrecord v0.0.6
+	github.com/roncewind/workerpool v0.0.1
 	github.com/senzing/g2-sdk-go v0.2.4
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
@@ -19,8 +20,6 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
-	github.com/roncewind/go-util v0.0.0-20230209152928-5d0b8b2f7ebd // indirect
-	github.com/roncewind/workerpool v0.0.1 // indirect
 	github.com/senzing/go-logging v1.1.1 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
