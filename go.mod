@@ -5,11 +5,17 @@ go 1.19
 require (
 	github.com/docktermj/go-xyzzy-helpers v0.2.2
 	github.com/rabbitmq/amqp091-go v1.5.0
+	github.com/roncewind/go-util v0.0.0-20230209152928-5d0b8b2f7ebd
 	github.com/roncewind/szrecord v0.0.6
 	github.com/roncewind/workerpool v0.0.1
 	github.com/senzing/g2-sdk-go v0.2.4
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
+)
+
+replace (
+	github.com/roncewind/move => ../move
+	github.com/roncewind/go-util => ../go-util
 )
 
 require (

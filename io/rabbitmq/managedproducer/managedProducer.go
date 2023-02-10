@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/roncewind/go-util/util"
 	"github.com/roncewind/move/io/rabbitmq"
 	"github.com/roncewind/workerpool"
 )
@@ -122,7 +123,7 @@ func createClients(ctx context.Context, rabbitmqClients chan *rabbitmq.Client, n
 
 // create Jobs and put them into the job queue
 func loadJobQueue(ctx context.Context, clientPool chan *rabbitmq.Client, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, recordchan chan rabbitmq.Record) {
-	for record := range orDone(ctx, recordchan) {
+	for record := range util.OrDone(ctx, recordchan) {
 		jobQ <- &RabbitJob{
 			clientPool:  clientPool,
 			id:          record.GetMessageId(),
@@ -131,32 +132,6 @@ func loadJobQueue(ctx context.Context, clientPool chan *rabbitmq.Client, newClie
 			record:      record,
 		}
 	}
-}
-
-// ----------------------------------------------------------------------------
-
-// OrDone encapsulates the for-select idiom used for many goroutines
-// the idea is that it makes the code easier to read
-func orDone(ctx context.Context, c <-chan rabbitmq.Record) <-chan rabbitmq.Record {
-	valueStream := make(chan rabbitmq.Record)
-	go func() {
-		defer close(valueStream)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case v, ok := <-c:
-				if !ok {
-					return
-				}
-				select {
-				case valueStream <- v:
-				case <-ctx.Done():
-				}
-			}
-		}
-	}()
-	return valueStream
 }
 
 // ----------------------------------------------------------------------------

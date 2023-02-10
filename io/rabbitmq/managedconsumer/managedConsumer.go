@@ -10,6 +10,7 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/roncewind/go-util/util"
 	"github.com/roncewind/move/io/rabbitmq"
 	"github.com/roncewind/szrecord"
 	"github.com/roncewind/workerpool"
@@ -157,7 +158,7 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 	}
 
 	//PONDER: what if something fails here?  how can we recover?
-	for delivery := range orDone(ctx, deliveries) {
+	for delivery := range util.OrDone(ctx, deliveries) {
 		jobQ <- &RabbitJob{
 			ctx:      ctx,
 			delivery: delivery,
@@ -165,32 +166,6 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 			withInfo: withInfo,
 		}
 	}
-}
-
-// ----------------------------------------------------------------------------
-
-// OrDone encapsulates the for-select idiom used for many goroutines
-// the idea is that it makes the code easier to read
-func orDone(ctx context.Context, c <-chan amqp.Delivery) <-chan amqp.Delivery {
-	valueStream := make(chan amqp.Delivery)
-	go func() {
-		defer close(valueStream)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case v, ok := <-c:
-				if !ok {
-					return
-				}
-				select {
-				case valueStream <- v:
-				case <-ctx.Done():
-				}
-			}
-		}
-	}()
-	return valueStream
 }
 
 // ----------------------------------------------------------------------------
