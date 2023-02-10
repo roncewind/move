@@ -100,7 +100,7 @@ func StartManagedConsumer(exchangeName, queueName, urlString string, numberOfWor
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	clientPool := make(chan *rabbitmq.Client, numberOfWorkers)
+	// clientPool := make(chan *rabbitmq.Client, numberOfWorkers)
 	newClientFn := func() *rabbitmq.Client { return rabbitmq.NewClient(exchangeName, queueName, urlString) }
 
 	// // populate an initial client pool
@@ -119,12 +119,12 @@ func StartManagedConsumer(exchangeName, queueName, urlString string, numberOfWor
 	cleanup := func() {
 		cancel()
 		close(jobQ)
-		close(clientPool)
-		// drain the client pool, closing rabbit mq connections
-		for len(clientPool) > 0 {
-			client := <-clientPool
-			client.Close()
-		}
+		// close(clientPool)
+		// // drain the client pool, closing rabbit mq connections
+		// for len(clientPool) > 0 {
+		// 	client := <-clientPool
+		// 	client.Close()
+		// }
 	}
 
 	// when shutdown signalled by OS signal, wait for 5 seconds for graceful shutdown
