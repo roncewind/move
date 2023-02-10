@@ -341,6 +341,9 @@ func (client *Client) UnsafePush(record Record) error {
 // It is required to call delivery.Ack when it has been
 // successfully processed, or delivery.Nack when it fails.
 // Ignoring this will cause data to build up on the server.
+//   - prefetch is the number of deliveries for the rabbit mq client to prefetch
+//     from the server.  a good rule of thumb is to prefetch as many as there
+//     will be clients processing the deliveries.
 func (client *Client) Consume(prefetch int) (<-chan amqp.Delivery, error) {
 	if !client.isReady {
 		// wait for client to be ready
