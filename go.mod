@@ -1,6 +1,6 @@
 module github.com/roncewind/move
 
-go 1.19
+go 1.20
 
 require (
 	github.com/docktermj/go-xyzzy-helpers v0.2.2
@@ -14,8 +14,8 @@ require (
 )
 
 replace (
-	github.com/roncewind/move => ../move
 	github.com/roncewind/go-util => ../go-util
+	github.com/roncewind/move => ../move
 )
 
 require (
