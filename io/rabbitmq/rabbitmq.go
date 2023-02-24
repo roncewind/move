@@ -195,7 +195,7 @@ func (client *Client) init(conn *amqp.Connection) error {
 	err = ch.ExchangeDeclare(
 		client.ExchangeName, // name
 		"direct",            // type
-		true,                // durable
+		false,               // durable
 		false,               // auto-deleted
 		false,               // internal
 		false,               // no-wait
@@ -208,7 +208,7 @@ func (client *Client) init(conn *amqp.Connection) error {
 	var q amqp.Queue
 	q, err = ch.QueueDeclare(
 		client.QueueName, // name
-		true,             // durable
+		false,            // durable
 		false,            // delete when unused
 		false,            // exclusive
 		false,            // no-wait
@@ -292,7 +292,6 @@ func (client *Client) Push(record Record) error {
 		select {
 		case confirm := <-client.notifyConfirm:
 			if confirm.Ack {
-				client.logger.Println("Push confirmed!")
 				// reset resend delay
 				client.resendDelay = client.ResendDelay
 				return nil

@@ -6,6 +6,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
+	"time"
 
 	// "errors"
 	"fmt"
@@ -192,6 +193,7 @@ func readJSONLResource(jsonURL string, recordchan chan rabbitmq.Record) {
 	scanner := bufio.NewScanner(response.Body)
 	scanner.Split(bufio.ScanLines)
 
+	fmt.Println(time.Now(), "Start resource read.")
 	i := 0
 	for scanner.Scan() {
 		i++
@@ -204,6 +206,9 @@ func readJSONLResource(jsonURL string, recordchan chan rabbitmq.Record) {
 			} else {
 				fmt.Println("Line", i, err)
 			}
+		}
+		if i%10000 == 0 {
+			fmt.Println(time.Now(), "Records sent to queue:", i)
 		}
 	}
 	close(recordchan)
@@ -220,6 +225,7 @@ func readJSONLFile(jsonFile string, recordchan chan rabbitmq.Record) {
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
 
+	fmt.Println(time.Now(), "Start file read.")
 	i := 0
 	for scanner.Scan() {
 		i++
@@ -232,6 +238,9 @@ func readJSONLFile(jsonFile string, recordchan chan rabbitmq.Record) {
 			} else {
 				fmt.Println("Line", i, err)
 			}
+		}
+		if i%10000 == 0 {
+			fmt.Println(time.Now(), "Records sent to queue:", i)
 		}
 	}
 	close(recordchan)

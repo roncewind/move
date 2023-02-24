@@ -37,7 +37,6 @@ var _ workerpool.Job = (*RabbitJob)(nil)
 // Job interface implementation:
 // Execute() is run once for each Job
 func (j *RabbitJob) Execute() error {
-	fmt.Println(j.id, "executing")
 	client := <-j.clientPool
 	err := client.Push(j.record)
 	if err != nil {
