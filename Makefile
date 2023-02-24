@@ -64,6 +64,25 @@ build-linux:
 	@mkdir -p $(TARGET_DIRECTORY)/linux || true
 	@mv $(GO_PACKAGE_NAME) $(TARGET_DIRECTORY)/linux
 
+.PHONY: build-scratch
+build-scratch:
+	@GOOS=linux \
+	GOARCH=amd64 \
+	CGO_ENABLED=0 \
+	go build \
+	  -a \
+      -installsuffix cgo \
+	  -ldflags \
+	    "-s \
+	     -w \
+	     -X main.buildIteration=${BUILD_ITERATION} \
+	     -X main.buildVersion=${BUILD_VERSION} \
+	     -X main.programName=${PROGRAM_NAME} \
+	    " \
+	  -o $(GO_PACKAGE_NAME)
+	@mkdir -p $(TARGET_DIRECTORY)/scratch || true
+	@mv $(GO_PACKAGE_NAME) $(TARGET_DIRECTORY)/scratch
+
 # -----------------------------------------------------------------------------
 # Test
 # -----------------------------------------------------------------------------

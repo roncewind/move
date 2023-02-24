@@ -10,7 +10,7 @@ ARG IMAGE_FINAL=senzing/senzingapi-runtime:3.4.0
 # -----------------------------------------------------------------------------
 
 FROM ${IMAGE_GO_BUILDER} as go_builder
-ENV REFRESHED_AT 2023-02-23
+ENV REFRESHED_AT 2023-02-23c
 LABEL Name="roncewind/move" \
       Maintainer="dad@lynntribe.net" \
       Version="0.0.0"
@@ -30,7 +30,7 @@ COPY . ${GOPATH}/src/${GO_PACKAGE_NAME}
 # Build go program.
 
 WORKDIR ${GOPATH}/src/${GO_PACKAGE_NAME}
-RUN make build
+RUN make build-scratch
 
 # --- Test go program ---------------------------------------------------------
 
@@ -49,21 +49,36 @@ RUN mkdir -p /output \
 # Stage: final
 # -----------------------------------------------------------------------------
 
-FROM ${IMAGE_FINAL} as final
-ENV REFRESHED_AT 2023-02-23
+FROM scratch as final
+ENV REFRESHED_AT 2023-02-24b
 LABEL Name="roncewind/move" \
       Maintainer="dad@lynntribe.net" \
       Version="0.0.0"
 
 # Copy files from prior step.
 
-COPY --from=go_builder "/output/linux/move" "/app/move"
-
-# Runtime environment variables.
-
-ENV LD_LIBRARY_PATH=/opt/senzing/g2/lib/
+COPY --from=go_builder "/output/scratch/move" "/app/move"
 
 # Runtime execution.
 
-WORKDIR /app
+# WORKDIR /app
 ENTRYPOINT ["/app/move"]
+
+# FROM ${IMAGE_FINAL} as final
+# ENV REFRESHED_AT 2023-02-23
+# LABEL Name="roncewind/move" \
+#       Maintainer="dad@lynntribe.net" \
+#       Version="0.0.0"
+
+# # Copy files from prior step.
+
+# COPY --from=go_builder "/output/linux/move" "/app/move"
+
+# # Runtime environment variables.
+
+# ENV LD_LIBRARY_PATH=/opt/senzing/g2/lib/
+
+# # Runtime execution.
+
+# WORKDIR /app
+# ENTRYPOINT ["/app/move"]
