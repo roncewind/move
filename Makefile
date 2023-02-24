@@ -75,9 +75,9 @@ build-scratch:
 	  -ldflags \
 	    "-s \
 	     -w \
-	     -X main.buildIteration=${BUILD_ITERATION} \
-	     -X main.buildVersion=${BUILD_VERSION} \
-	     -X main.programName=${PROGRAM_NAME} \
+	     -X 'github.com/roncewind/move/cmd.buildIteration=${BUILD_ITERATION}' \
+	     -X 'github.com/roncewind/move/cmd.buildVersion=${BUILD_VERSION}' \
+	     -X 'github.com/roncewind/move/cmd.programName=${PROGRAM_NAME}' \
 	    " \
 	  -o $(GO_PACKAGE_NAME)
 	@mkdir -p $(TARGET_DIRECTORY)/scratch || true

@@ -27,6 +27,12 @@ import (
 )
 
 var (
+	buildIteration string = "0"
+	buildVersion   string = "0.0.0"
+	programName    string = "move"
+)
+
+var (
 	cfgFile    string
 	exchange   string = "senzing"
 	fileType   string
@@ -89,6 +95,8 @@ var RootCmd = &cobra.Command{
 			waitGroup.Wait()
 		} else {
 			cmd.Help()
+			fmt.Println("Build Version:", buildVersion)
+			fmt.Println("Build Iteration:", buildIteration)
 		}
 	},
 }
