@@ -28,10 +28,13 @@ import (
 )
 
 const (
-	fileTypeParameter  string = "file-type"
-	inputURLParameter  string = "input-url"
-	logLevelParameter  string = "log-level"
-	outputURLParameter string = "output-url"
+	envVarPrefix          string = "SENZING_TOOLS"
+	envVarReplacerCharNew string = "_"
+	envVarReplacerCharOld string = "-"
+	fileTypeParameter     string = "file-type"
+	inputURLParameter     string = "input-url"
+	logLevelParameter     string = "log-level"
+	outputURLParameter    string = "output-url"
 )
 
 var (
@@ -137,6 +140,7 @@ func read(urlString string, recordchan chan rabbitmq.Record) {
 		} else {
 			valid := validate(u.Path)
 			fmt.Println("Is valid JSON?", valid)
+			//TODO: process JSON file?
 			close(recordchan)
 		}
 	} else if u.Scheme == "http" || u.Scheme == "https" {
@@ -165,31 +169,6 @@ func write(urlString string, recordchan chan rabbitmq.Record) {
 
 	<-managedproducer.StartManagedProducer(urlString, 0, recordchan)
 	fmt.Println("So long and thanks for all the fish.")
-	// client := rabbitmq.NewClient(exchangeName, queueName, urlString)
-	// client := rabbitmq.Init(&rabbitmq.Client{
-	// 	ExchangeName:   exchangeName,
-	// 	QueueName:      queueName,
-	// 	ReconnectDelay: 5 * time.Second,
-	// 	ReInitDelay:    3 * time.Second,
-	// 	ResendDelay:    1 * time.Second,
-	// }, urlString)
-	// defer client.Close()
-
-	// for {
-	// 	// Wait for record to be assigned.
-	// 	record, result := <-recordchan
-
-	// 	if !result && len(recordchan) == 0 {
-	// 		// This means the channel is empty and closed.
-	// 		fmt.Println("all records moved, recordchan closed")
-	// 		return
-	// 	}
-
-	// 	if err := client.Push(record); err != nil {
-	// 		fmt.Println("Failed to publish record:", record.GetMessageId())
-	// 		fmt.Println("Error: ", err)
-	// 	}
-	// }
 }
 
 // ----------------------------------------------------------------------------
@@ -415,9 +394,9 @@ func initConfig() {
 	}
 	viper.AutomaticEnv() // read in environment variables that match
 	// all env vars should be prefixed with "SENZING_TOOLS_"
-	replacer := strings.NewReplacer("-", "_")
+	replacer := strings.NewReplacer(envVarReplacerCharOld, envVarReplacerCharNew)
 	viper.SetEnvKeyReplacer(replacer)
-	viper.SetEnvPrefix("SENZING_TOOLS")
+	viper.SetEnvPrefix(envVarPrefix)
 	viper.BindEnv(fileTypeParameter)
 	viper.BindEnv(inputURLParameter)
 	viper.BindEnv(logLevelParameter)
