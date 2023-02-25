@@ -27,6 +27,13 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	fileTypeParameter  string = "file-type"
+	inputURLParameter  string = "input-url"
+	logLevelParameter  string = "log-level"
+	outputURLParameter string = "output-url"
+)
+
 var (
 	buildIteration string = "0"
 	buildVersion   string = "0.0.0"
@@ -72,8 +79,8 @@ var RootCmd = &cobra.Command{
 
 	For example:
 
-	move --inputURL "file:///path/to/json/lines/file.jsonl" --outputURL "amqp://guest:guest@192.168.6.96:5672"
-	move --inputURL "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl" --outputURL "amqp://guest:guest@192.168.6.96:5672"
+	move --input-url "file:///path/to/json/lines/file.jsonl" --output-url "amqp://guest:guest@192.168.6.96:5672"
+	move --input-url "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl" --output-url "amqp://guest:guest@192.168.6.96:5672"
 `,
 
 	// The core of this command:
@@ -84,17 +91,17 @@ var RootCmd = &cobra.Command{
 			fmt.Println("  - ", key, " = ", viper.Get(key))
 		}
 
-		if viper.IsSet("inputURL") &&
-			viper.IsSet("outputURL") {
+		if viper.IsSet(inputURLParameter) &&
+			viper.IsSet(outputURLParameter) {
 
 			waitGroup.Add(2)
 			recordchan := make(chan rabbitmq.Record, 10)
-			go read(viper.GetString("inputURL"), recordchan)
-			go write(viper.GetString("outputURL"), recordchan)
+			go read(viper.GetString(inputURLParameter), recordchan)
+			go write(viper.GetString(outputURLParameter), recordchan)
 			waitGroup.Wait()
 		} else {
 			cmd.Help()
-			u, err := url.Parse(viper.GetString("outputURL"))
+			u, err := url.Parse(viper.GetString(outputURLParameter))
 			if err != nil {
 				panic(err)
 			}
@@ -365,18 +372,14 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	RootCmd.Flags().StringVarP(&exchange, "exchange", "", "", "Message queue exchange name")
-	viper.BindPFlag("exchange", RootCmd.Flags().Lookup("exchange"))
-	RootCmd.Flags().StringVarP(&fileType, "fileType", "", "", "file type override")
-	viper.BindPFlag("fileType", RootCmd.Flags().Lookup("fileType"))
-	RootCmd.Flags().StringVarP(&inputQueue, "inputQueue", "", "", "Senzing input queue name")
-	viper.BindPFlag("inputQueue", RootCmd.Flags().Lookup("inputQueue"))
-	RootCmd.Flags().StringVarP(&inputURL, "inputURL", "i", "", "input location")
-	viper.BindPFlag("inputURL", RootCmd.Flags().Lookup("inputURL"))
-	RootCmd.Flags().StringVarP(&logLevel, "logLevel", "", "", "set the logging level, default Error")
-	viper.BindPFlag("logLevel", RootCmd.Flags().Lookup("logLevel"))
-	RootCmd.Flags().StringVarP(&outputURL, "outputURL", "o", "", "output location")
-	viper.BindPFlag("outputURL", RootCmd.Flags().Lookup("outputURL"))
+	RootCmd.Flags().StringVarP(&fileType, fileTypeParameter, "", "", "file type override")
+	viper.BindPFlag(fileTypeParameter, RootCmd.Flags().Lookup(fileTypeParameter))
+	RootCmd.Flags().StringVarP(&inputURL, inputURLParameter, "i", "", "input location")
+	viper.BindPFlag(inputURLParameter, RootCmd.Flags().Lookup(inputURLParameter))
+	RootCmd.Flags().StringVarP(&logLevel, logLevelParameter, "", "", "set the logging level, default Error")
+	viper.BindPFlag(logLevelParameter, RootCmd.Flags().Lookup(logLevelParameter))
+	RootCmd.Flags().StringVarP(&outputURL, outputURLParameter, "o", "", "output location")
+	viper.BindPFlag(outputURLParameter, RootCmd.Flags().Lookup(outputURLParameter))
 }
 
 // ----------------------------------------------------------------------------
@@ -412,27 +415,23 @@ func initConfig() {
 	}
 	viper.AutomaticEnv() // read in environment variables that match
 	// all env vars should be prefixed with "SENZING_TOOLS_"
-	viper.SetEnvPrefix("senzing_tools")
-	viper.BindEnv("exchange")
-	viper.BindEnv("fileType")
-	viper.BindEnv("inputQueue")
-	viper.BindEnv("inputURL")
-	viper.BindEnv("logLevel")
-	viper.BindEnv("outputURL")
+	replacer := strings.NewReplacer("-", "_")
+	viper.SetEnvKeyReplacer(replacer)
+	viper.SetEnvPrefix("SENZING_TOOLS")
+	viper.BindEnv(fileTypeParameter)
+	viper.BindEnv(inputURLParameter)
+	viper.BindEnv(logLevelParameter)
+	viper.BindEnv(outputURLParameter)
 
-	viper.SetDefault("exchange", "senzing")
-	viper.SetDefault("inputQueue", "senzing-input")
-	viper.SetDefault("logLevel", "error")
+	viper.SetDefault(logLevelParameter, "error")
 
 	// setup local variables, in case they came from a config file
 	//TODO:  why do I have to do this?  env vars and cmdline params get mapped
 	//  automatically, this is only IF the var is in the config file
-	exchange = viper.GetString("exchange")
-	fileType = viper.GetString("fileType")
-	inputQueue = viper.GetString("inputQueue")
-	inputURL = viper.GetString("inputURL")
-	logLevel = viper.GetString("logLevel")
-	outputURL = viper.GetString("outputURL")
+	fileType = viper.GetString(fileTypeParameter)
+	inputURL = viper.GetString(inputURLParameter)
+	logLevel = viper.GetString(logLevelParameter)
+	outputURL = viper.GetString(outputURLParameter)
 
 	setLogLevel()
 }
@@ -440,7 +439,7 @@ func initConfig() {
 // ----------------------------------------------------------------------------
 func setLogLevel() {
 	var level logger.Level = logger.LevelError
-	if viper.IsSet("logLevel") {
+	if viper.IsSet(logLevelParameter) {
 		switch strings.ToUpper(logLevel) {
 		case logger.LevelDebugName:
 			level = logger.LevelDebug
