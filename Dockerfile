@@ -10,7 +10,7 @@ ARG IMAGE_FINAL=senzing/senzingapi-runtime:3.4.0
 # -----------------------------------------------------------------------------
 
 FROM ${IMAGE_GO_BUILDER} as go_builder
-ENV REFRESHED_AT 2023-02-23c
+ENV REFRESHED_AT 2023-02-25
 LABEL Name="roncewind/move" \
       Maintainer="dad@lynntribe.net" \
       Version="0.0.0"
@@ -50,7 +50,7 @@ RUN mkdir -p /output \
 # -----------------------------------------------------------------------------
 
 FROM scratch as final
-ENV REFRESHED_AT 2023-02-24b
+ENV REFRESHED_AT 2023-02-25
 LABEL Name="roncewind/move" \
       Maintainer="dad@lynntribe.net" \
       Version="0.0.0"
