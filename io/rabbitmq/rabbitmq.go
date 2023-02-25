@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"math/rand"
+	"net/url"
 	"os"
 	"time"
 
@@ -17,6 +18,7 @@ type Client struct {
 	ReconnectDelay time.Duration
 	ReInitDelay    time.Duration
 	ResendDelay    time.Duration
+	RoutingKey     string
 
 	connection      *amqp.Connection
 	channel         *amqp.Channel
@@ -46,13 +48,28 @@ var (
 
 // New creates a single RabbitMQ client that will automatically
 // attempt to connect to the server.  Reconnection delays are set to defaults.
-func NewClient(exchangeName, queueName, urlString string) *Client {
+func NewClient(urlString string) *Client {
+
+	u, err := url.Parse(urlString)
+	if err != nil {
+		panic(err)
+	}
+	queryMap, _ := url.ParseQuery(u.RawQuery)
+	if len(queryMap["exchange"]) < 1 || len(queryMap["queue-name"]) < 1 {
+		panic("Please define an exchange and queue-name as query parameters.")
+	}
+	routingKey := queryMap["queue-name"][0]
+	if len(queryMap["routing-key"]) > 0 {
+		routingKey = queryMap["routing-key"][0]
+	}
+
 	client := Client{
-		ExchangeName:   exchangeName,
-		QueueName:      queueName,
+		ExchangeName:   queryMap["exchange"][0],
+		QueueName:      queryMap["queue-name"][0],
 		ReconnectDelay: 2 * time.Second,
 		ReInitDelay:    2 * time.Second,
 		ResendDelay:    1 * time.Second,
+		RoutingKey:     routingKey,
 
 		done:        make(chan bool),
 		logger:      log.New(os.Stdout, "", log.LstdFlags),
@@ -220,7 +237,7 @@ func (client *Client) init(conn *amqp.Connection) error {
 
 	err = ch.QueueBind(
 		q.Name,              // queue name
-		q.Name,              // routing key
+		client.RoutingKey,   // routing key
 		client.ExchangeName, // exchange
 		false,
 		nil,
@@ -322,7 +339,7 @@ func (client *Client) UnsafePush(record Record) error {
 	return client.channel.PublishWithContext(
 		ctx,                 // context
 		client.ExchangeName, // exchange name
-		client.QueueName,    // routing key
+		client.RoutingKey,   // routing key
 		false,               // mandatory
 		false,               // immediate
 		amqp.Publishing{ // message

@@ -85,17 +85,20 @@ var RootCmd = &cobra.Command{
 		}
 
 		if viper.IsSet("inputURL") &&
-			viper.IsSet("outputURL") &&
-			viper.IsSet("exchange") &&
-			viper.IsSet("inputQueue") {
+			viper.IsSet("outputURL") {
 
 			waitGroup.Add(2)
 			recordchan := make(chan rabbitmq.Record, 10)
 			go read(viper.GetString("inputURL"), recordchan)
-			go write(viper.GetString("outputURL"), viper.GetString("exchange"), viper.GetString("inputQueue"), recordchan)
+			go write(viper.GetString("outputURL"), recordchan)
 			waitGroup.Wait()
 		} else {
 			cmd.Help()
+			u, err := url.Parse(viper.GetString("outputURL"))
+			if err != nil {
+				panic(err)
+			}
+			printURL(u)
 			fmt.Println("Build Version:", buildVersion)
 			fmt.Println("Build Iteration:", buildIteration)
 		}
@@ -143,7 +146,7 @@ func read(urlString string, recordchan chan rabbitmq.Record) {
 }
 
 // ----------------------------------------------------------------------------
-func write(urlString string, exchangeName string, queueName string, recordchan chan rabbitmq.Record) {
+func write(urlString string, recordchan chan rabbitmq.Record) {
 	fmt.Println("Enter write")
 	defer waitGroup.Done()
 	fmt.Println("Write URL string: ", urlString)
@@ -153,7 +156,7 @@ func write(urlString string, exchangeName string, queueName string, recordchan c
 	}
 	printURL(u)
 
-	<-managedproducer.StartManagedProducer(exchangeName, queueName, urlString, 0, recordchan)
+	<-managedproducer.StartManagedProducer(urlString, 0, recordchan)
 	fmt.Println("So long and thanks for all the fish.")
 	// client := rabbitmq.NewClient(exchangeName, queueName, urlString)
 	// client := rabbitmq.Init(&rabbitmq.Client{
@@ -330,7 +333,10 @@ func printURL(u *url.URL) {
 	fmt.Println("\tQuery string: ", u.RawQuery)
 	m, _ := url.ParseQuery(u.RawQuery)
 	fmt.Println("\tParsed query string: ", m)
-	// fmt.Println(m["k"][0])
+	for key, value := range m {
+		fmt.Println("Key:", key, "=>", "Value:", value[0])
+	}
+
 }
 
 // ----------------------------------------------------------------------------
