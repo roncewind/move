@@ -55,17 +55,17 @@ func NewClient(urlString string) *Client {
 		panic(err)
 	}
 	queryMap, _ := url.ParseQuery(u.RawQuery)
-	if len(queryMap["exchange"]) < 1 || len(queryMap["input-queue"]) < 1 {
-		panic("Please define an exchange and input-queue as query parameters.")
+	if len(queryMap["exchange"]) < 1 || len(queryMap["queue-name"]) < 1 {
+		panic("Please define an exchange and queue-name as query parameters.")
 	}
-	routingKey := queryMap["input-queue"][0]
+	routingKey := queryMap["queue-name"][0]
 	if len(queryMap["routing-key"]) > 0 {
 		routingKey = queryMap["routing-key"][0]
 	}
 
 	client := Client{
 		ExchangeName:   queryMap["exchange"][0],
-		QueueName:      queryMap["input-queue"][0],
+		QueueName:      queryMap["queue-name"][0],
 		ReconnectDelay: 2 * time.Second,
 		ReInitDelay:    2 * time.Second,
 		ResendDelay:    1 * time.Second,
