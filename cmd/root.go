@@ -28,13 +28,13 @@ import (
 )
 
 const (
-	envVarPrefix          string = "SENZING_TOOLS"
-	envVarReplacerCharNew string = "_"
-	envVarReplacerCharOld string = "-"
-	fileTypeParameter     string = "file-type"
-	inputURLParameter     string = "input-url"
-	logLevelParameter     string = "log-level"
-	outputURLParameter    string = "output-url"
+	envVarPrefix           string = "SENZING_TOOLS"
+	envVarReplacerCharNew  string = "_"
+	envVarReplacerCharOld  string = "-"
+	inputFileTypeParameter string = "input-file-type"
+	inputURLParameter      string = "input-url"
+	logLevelParameter      string = "log-level"
+	outputURLParameter     string = "output-url"
 )
 
 var (
@@ -351,8 +351,8 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	RootCmd.Flags().StringVarP(&fileType, fileTypeParameter, "", "", "file type override")
-	viper.BindPFlag(fileTypeParameter, RootCmd.Flags().Lookup(fileTypeParameter))
+	RootCmd.Flags().StringVarP(&fileType, inputFileTypeParameter, "", "", "file type override")
+	viper.BindPFlag(inputFileTypeParameter, RootCmd.Flags().Lookup(inputFileTypeParameter))
 	RootCmd.Flags().StringVarP(&inputURL, inputURLParameter, "i", "", "input location")
 	viper.BindPFlag(inputURLParameter, RootCmd.Flags().Lookup(inputURLParameter))
 	RootCmd.Flags().StringVarP(&logLevel, logLevelParameter, "", "", "set the logging level, default Error")
@@ -397,7 +397,7 @@ func initConfig() {
 	replacer := strings.NewReplacer(envVarReplacerCharOld, envVarReplacerCharNew)
 	viper.SetEnvKeyReplacer(replacer)
 	viper.SetEnvPrefix(envVarPrefix)
-	viper.BindEnv(fileTypeParameter)
+	viper.BindEnv(inputFileTypeParameter)
 	viper.BindEnv(inputURLParameter)
 	viper.BindEnv(logLevelParameter)
 	viper.BindEnv(outputURLParameter)
@@ -407,7 +407,7 @@ func initConfig() {
 	// setup local variables, in case they came from a config file
 	//TODO:  why do I have to do this?  env vars and cmdline params get mapped
 	//  automatically, this is only IF the var is in the config file
-	fileType = viper.GetString(fileTypeParameter)
+	fileType = viper.GetString(inputFileTypeParameter)
 	inputURL = viper.GetString(inputURLParameter)
 	logLevel = viper.GetString(logLevelParameter)
 	outputURL = viper.GetString(outputURLParameter)
