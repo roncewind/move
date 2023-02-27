@@ -6,6 +6,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
+	"runtime"
 	"time"
 
 	// "errors"
@@ -167,7 +168,8 @@ func write(urlString string, recordchan chan rabbitmq.Record) {
 	}
 	printURL(u)
 
-	<-managedproducer.StartManagedProducer(urlString, 0, recordchan)
+	// set number of workers to runtime.GOMAXPROCS(0)
+	<-managedproducer.StartManagedProducer(urlString, runtime.GOMAXPROCS(0), recordchan)
 	fmt.Println("So long and thanks for all the fish.")
 }
 
