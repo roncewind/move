@@ -14,7 +14,7 @@ import (
 	"github.com/roncewind/move/io/rabbitmq"
 	"github.com/roncewind/szrecord"
 	"github.com/roncewind/workerpool"
-	"github.com/senzing/g2-sdk-go/g2engine"
+	"github.com/senzing/g2-sdk-go/g2api"
 )
 
 // ----------------------------------------------------------------------------
@@ -25,7 +25,7 @@ import (
 type RabbitJob struct {
 	ctx      context.Context
 	delivery amqp.Delivery
-	engine   g2engine.G2engine
+	engine   g2api.G2engine
 	id       string
 	withInfo bool
 }
@@ -91,7 +91,7 @@ func (j *RabbitJob) OnError(err error) {
 // the given queue.
 // - Workers restart when they are killed or die.
 // - respond to standard system signals.
-func StartManagedConsumer(ctx context.Context, exchangeName, queueName, urlString string, numberOfWorkers int, engine g2engine.G2engine, withInfo bool) chan struct{} {
+func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers int, engine g2api.G2engine, withInfo bool) chan struct{} {
 
 	//default to the max number of OS threads
 	if numberOfWorkers <= 0 {
@@ -102,7 +102,7 @@ func StartManagedConsumer(ctx context.Context, exchangeName, queueName, urlStrin
 	ctx, cancel := context.WithCancel(ctx)
 
 	// clientPool := make(chan *rabbitmq.Client, numberOfWorkers)
-	newClientFn := func() *rabbitmq.Client { return rabbitmq.NewClient(exchangeName, queueName, urlString) }
+	newClientFn := func() *rabbitmq.Client { return rabbitmq.NewClient(urlString) }
 
 	// // populate an initial client pool
 	// go createClients(ctx, clientPool, numberOfWorkers, newClientFn)
@@ -148,7 +148,7 @@ func StartManagedConsumer(ctx context.Context, exchangeName, queueName, urlStrin
 // ----------------------------------------------------------------------------
 
 // create Jobs and put them into the job queue
-func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, prefetch int, engine g2engine.G2engine, withInfo bool) {
+func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, prefetch int, engine g2api.G2engine, withInfo bool) {
 	client := newClientFn()
 	defer client.Close()
 	deliveries, err := client.Consume(prefetch)
