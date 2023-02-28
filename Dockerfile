@@ -64,21 +64,3 @@ COPY --from=go_builder "/output/scratch/move" "/app/move"
 # WORKDIR /app
 ENTRYPOINT ["/app/move"]
 
-# FROM ${IMAGE_FINAL} as final
-# ENV REFRESHED_AT 2023-02-23
-# LABEL Name="roncewind/move" \
-#       Maintainer="dad@lynntribe.net" \
-#       Version="0.0.0"
-
-# # Copy files from prior step.
-
-# COPY --from=go_builder "/output/linux/move" "/app/move"
-
-# # Runtime environment variables.
-
-# ENV LD_LIBRARY_PATH=/opt/senzing/g2/lib/
-
-# # Runtime execution.
-
-# WORKDIR /app
-# ENTRYPOINT ["/app/move"]
