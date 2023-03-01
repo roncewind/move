@@ -156,8 +156,8 @@ github.com/roncewind/go-util v0.0.1 h1:eAdeTyi4QsevG8sKlKGFR7gEm9qETTsOUEJWx7ILS
 github.com/roncewind/go-util v0.0.1/go.mod h1:vHqE/RBGLs+4IU9FnGdYDaF492BO8Zc0crqTiXvIp0E=
 github.com/roncewind/szrecord v0.0.7 h1:r9OhNlygGpjOq1fGYkE3x1bbaaDohBTGiOtzg6G68ko=
 github.com/roncewind/szrecord v0.0.7/go.mod h1:uZjICMl1bbjDXr1dBGE4GU2frsyGrsBXgTsk47sX7Rs=
-github.com/roncewind/workerpool v0.0.3 h1:9ZgMeyumWeMtH3dzqrPHJFxq1Wtlknlt4nAW186+viI=
-github.com/roncewind/workerpool v0.0.3/go.mod h1:cUHV/wngIowKcK+CXx5O2iqUO/jXt1qhnYGtQJMO0H0=
+github.com/roncewind/workerpool v0.0.4 h1:k7v3ObH4HArlj9QwU6qgCZeWKYzj08AzNBGq5Col2GU=
+github.com/roncewind/workerpool v0.0.4/go.mod h1:cUHV/wngIowKcK+CXx5O2iqUO/jXt1qhnYGtQJMO0H0=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/senzing/g2-sdk-go v0.4.1 h1:McZVlNweYtp4rh1AKdOeu0p4J5cPUdBv/z09W6WHRqE=
 github.com/senzing/g2-sdk-go v0.4.1/go.mod h1:tz+pX1kT4S5ooDb0DwO8gkSAYZcpPn/jFB0oZfssd84=

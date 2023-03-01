@@ -7,7 +7,7 @@ require (
 	github.com/rabbitmq/amqp091-go v1.7.0
 	github.com/roncewind/go-util v0.0.1
 	github.com/roncewind/szrecord v0.0.7
-	github.com/roncewind/workerpool v0.0.3
+	github.com/roncewind/workerpool v0.0.4
 	github.com/senzing/g2-sdk-go v0.4.1
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
