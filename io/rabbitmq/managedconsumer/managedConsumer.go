@@ -41,28 +41,30 @@ var _ workerpool.Job = (*RabbitJob)(nil)
 // Execute() is run once for each Job
 func (j *RabbitJob) Execute() error {
 	j.id = j.delivery.MessageId
-	fmt.Printf("Received a message- msgId: %s, msgCnt: %d, ConsumerTag: %s\n", j.id, j.delivery.MessageCount, j.delivery.ConsumerTag)
+	// fmt.Printf("Received a message- msgId: %s, msgCnt: %d, ConsumerTag: %s\n", j.id, j.delivery.MessageCount, j.delivery.ConsumerTag)
 	record, newRecordErr := szrecord.NewRecord(string(j.delivery.Body))
 	if newRecordErr == nil {
-		fmt.Printf("Processing record: %s\n", record.Id)
+		// fmt.Printf("Processing record: %s\n", record.Id)
 		loadID := "Load"
 		if j.withInfo {
 			var flags int64 = 0
-			withInfo, withInfoErr := j.engine.AddRecordWithInfo(j.ctx, record.DataSource, record.Id, record.Json, loadID, flags)
+			_, withInfoErr := j.engine.AddRecordWithInfo(j.ctx, record.DataSource, record.Id, record.Json, loadID, flags)
 			if withInfoErr != nil {
+				fmt.Println(time.Now(), "Error adding record withInfo:", j.id, "error:", withInfoErr)
 				return withInfoErr
 			} else {
 				//TODO:  what do we do with the record here?
-				fmt.Printf("Record added: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
-				fmt.Printf("WithInfo: %s\n", withInfo)
+				// fmt.Printf("Record added: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
+				// fmt.Printf("WithInfo: %s\n", withInfo)
 			}
 		} else {
 			addRecordErr := j.engine.AddRecord(j.ctx, record.DataSource, record.Id, record.Json, loadID)
 			if addRecordErr != nil {
+				fmt.Println(time.Now(), "Error adding record:", j.id, "error:", addRecordErr)
 				return addRecordErr
-			} else {
+				// } else {
 				//TODO: log a positive result?
-				fmt.Printf("Record added: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
+				// fmt.Printf("Record added: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 			}
 		}
 
@@ -70,6 +72,7 @@ func (j *RabbitJob) Execute() error {
 		j.delivery.Ack(false)
 	} else {
 		// logger.LogMessageFromError(MessageIdFormat, 2001, "create new szRecord", newRecordErr)
+		fmt.Println(time.Now(), "Invalid delivery from RabbitMQ:", j.id)
 		// when we get an invalid delivery, negatively acknowledge and send to the dead letter queue
 		j.delivery.Nack(false, false)
 	}
