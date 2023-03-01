@@ -23,7 +23,6 @@ import (
 
 // define a structure that will implement the Job interface
 type RabbitJob struct {
-	ctx      context.Context
 	delivery amqp.Delivery
 	engine   g2api.G2engine
 	id       string
@@ -39,7 +38,7 @@ var _ workerpool.Job = (*RabbitJob)(nil)
 
 // Job interface implementation:
 // Execute() is run once for each Job
-func (j *RabbitJob) Execute() error {
+func (j *RabbitJob) Execute(ctx context.Context) error {
 	j.id = j.delivery.MessageId
 	// fmt.Printf("Received a message- msgId: %s, msgCnt: %d, ConsumerTag: %s\n", j.id, j.delivery.MessageCount, j.delivery.ConsumerTag)
 	record, newRecordErr := szrecord.NewRecord(string(j.delivery.Body))
@@ -48,9 +47,10 @@ func (j *RabbitJob) Execute() error {
 		loadID := "Load"
 		if j.withInfo {
 			var flags int64 = 0
-			_, withInfoErr := j.engine.AddRecordWithInfo(j.ctx, record.DataSource, record.Id, record.Json, loadID, flags)
+			_, withInfoErr := j.engine.AddRecordWithInfo(ctx, record.DataSource, record.Id, record.Json, loadID, flags)
 			if withInfoErr != nil {
 				fmt.Println(time.Now(), "Error adding record withInfo:", j.id, "error:", withInfoErr)
+				fmt.Printf("Record in error: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 				return withInfoErr
 			} else {
 				//TODO:  what do we do with the record here?
@@ -58,9 +58,10 @@ func (j *RabbitJob) Execute() error {
 				// fmt.Printf("WithInfo: %s\n", withInfo)
 			}
 		} else {
-			addRecordErr := j.engine.AddRecord(j.ctx, record.DataSource, record.Id, record.Json, loadID)
+			addRecordErr := j.engine.AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
 			if addRecordErr != nil {
 				fmt.Println(time.Now(), "Error adding record:", j.id, "error:", addRecordErr)
+				fmt.Printf("Record in error: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 				return addRecordErr
 				// } else {
 				//TODO: log a positive result?
@@ -123,12 +124,6 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	cleanup := func() {
 		cancel()
 		close(jobQ)
-		// close(clientPool)
-		// // drain the client pool, closing rabbit mq connections
-		// for len(clientPool) > 0 {
-		// 	client := <-clientPool
-		// 	client.Close()
-		// }
 	}
 
 	// when shutdown signalled by OS signal, wait for 5 seconds for graceful shutdown
@@ -138,15 +133,6 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	// return blocking channel
 	return sigShutdown
 }
-
-// // ----------------------------------------------------------------------------
-
-// // create a number of clients and put them into the client queue
-// func createClients(ctx context.Context, rabbitmqClients chan *rabbitmq.Client, numOfClients int, newClientFn func() *rabbitmq.Client) {
-// 	for i := 0; i < numOfClients; i++ {
-// 		rabbitmqClients <- newClientFn()
-// 	}
-// }
 
 // ----------------------------------------------------------------------------
 
@@ -163,7 +149,6 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 	//PONDER: what if something fails here?  how can we recover?
 	for delivery := range util.OrDone(ctx, deliveries) {
 		jobQ <- &RabbitJob{
-			ctx:      ctx,
 			delivery: delivery,
 			engine:   engine,
 			withInfo: withInfo,
