@@ -70,7 +70,7 @@ func StartManagedProducer(urlString string, numberOfWorkers int, recordchan chan
 	if numberOfWorkers <= 0 {
 		numberOfWorkers = runtime.GOMAXPROCS(0)
 	}
-	fmt.Println("Number of producer workers:", numberOfWorkers)
+	fmt.Println(time.Now(), "Number of producer workers:", numberOfWorkers)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -92,12 +92,15 @@ func StartManagedProducer(urlString string, numberOfWorkers int, recordchan chan
 	// clean up after ourselves
 	cleanup := func() {
 		cancel()
+		fmt.Println(time.Now(), "Cleaup job queue and client pool.")
 		close(jobQ)
 		close(clientPool)
 		// drain the client pool, closing rabbit mq connections
 		for len(clientPool) > 0 {
-			client := <-clientPool
-			client.Close()
+			client, ok := <-clientPool
+			if ok && client != nil {
+				client.Close()
+			}
 		}
 	}
 
@@ -116,12 +119,14 @@ func createClients(ctx context.Context, rabbitmqClients chan *rabbitmq.Client, n
 	for i := 0; i < numOfClients; i++ {
 		rabbitmqClients <- newClientFn()
 	}
+	fmt.Println(time.Now(), numOfClients, "rabbitMQ clients created")
 }
 
 // ----------------------------------------------------------------------------
 
 // create Jobs and put them into the job queue
 func loadJobQueue(ctx context.Context, clientPool chan *rabbitmq.Client, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, recordchan chan rabbitmq.Record) {
+	jobCount := 0
 	for record := range util.OrDone(ctx, recordchan) {
 		jobQ <- &RabbitJob{
 			clientPool:  clientPool,
@@ -130,7 +135,10 @@ func loadJobQueue(ctx context.Context, clientPool chan *rabbitmq.Client, newClie
 			newClientFn: newClientFn,
 			record:      record,
 		}
+		jobCount++
 	}
+
+	fmt.Println(time.Now(), "Total number of jobs:", jobCount)
 }
 
 // ----------------------------------------------------------------------------
@@ -153,13 +161,13 @@ func gracefulShutdown(cleanup func(), timeout time.Duration) chan struct{} {
 		killsig := <-sig
 		switch killsig {
 		case syscall.SIGINT:
-			fmt.Println("Killed with ctrl-c")
+			fmt.Println(time.Now(), "Killed with ctrl-c")
 		case syscall.SIGTERM:
-			fmt.Println("Killed with request to terminate")
+			fmt.Println(time.Now(), "Killed with request to terminate")
 		case syscall.SIGQUIT:
-			fmt.Println("Killed with ctrl-\\")
+			fmt.Println(time.Now(), "Killed with ctrl-\\")
 		case syscall.SIGHUP:
-			fmt.Println("Killed with hang up")
+			fmt.Println(time.Now(), "Killed with hang up")
 		}
 
 		// set timeout for the cleanup to be done to prevent system hang
@@ -172,7 +180,7 @@ func gracefulShutdown(cleanup func(), timeout time.Duration) chan struct{} {
 		defer timeoutFunc.Stop()
 
 		// clean-up time
-		fmt.Println("Shutdown signalled, time to clean-up")
+		fmt.Println(time.Now(), "Shutdown signalled, time to clean-up")
 		cleanup()
 
 		// wait for timeout to finish

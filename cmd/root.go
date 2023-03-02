@@ -184,7 +184,7 @@ func readJSONLResource(jsonURL string, recordchan chan rabbitmq.Record) {
 	scanner := bufio.NewScanner(response.Body)
 	scanner.Split(bufio.ScanLines)
 
-	fmt.Println(time.Now(), "Start resource read.")
+	fmt.Println(time.Now(), "Start resource read", jsonURL)
 	i := 0
 	for scanner.Scan() {
 		i++
@@ -203,6 +203,7 @@ func readJSONLResource(jsonURL string, recordchan chan rabbitmq.Record) {
 		}
 	}
 	close(recordchan)
+	fmt.Println(time.Now(), "Record channel close for resource", jsonURL)
 }
 
 // ----------------------------------------------------------------------------
@@ -216,7 +217,7 @@ func readJSONLFile(jsonFile string, recordchan chan rabbitmq.Record) {
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
 
-	fmt.Println(time.Now(), "Start file read.")
+	fmt.Println(time.Now(), "Start file read", jsonFile)
 	i := 0
 	for scanner.Scan() {
 		i++
@@ -235,6 +236,7 @@ func readJSONLFile(jsonFile string, recordchan chan rabbitmq.Record) {
 		}
 	}
 	close(recordchan)
+	fmt.Println(time.Now(), "Record channel close for file", jsonFile)
 }
 
 // ----------------------------------------------------------------------------
