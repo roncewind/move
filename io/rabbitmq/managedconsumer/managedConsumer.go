@@ -105,11 +105,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	// clientPool := make(chan *rabbitmq.Client, numberOfWorkers)
 	newClientFn := func() *rabbitmq.Client { return rabbitmq.NewClient(urlString) }
-
-	// // populate an initial client pool
-	// go createClients(ctx, clientPool, numberOfWorkers, newClientFn)
 
 	// make a buffered channel with the space for all workers
 	//  workers will signal on this channel if they die
@@ -146,12 +142,17 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 		return
 	}
 
+	jobCount := 0
 	//PONDER: what if something fails here?  how can we recover?
 	for delivery := range util.OrDone(ctx, deliveries) {
 		jobQ <- &RabbitJob{
 			delivery: delivery,
 			engine:   engine,
 			withInfo: withInfo,
+		}
+		jobCount++
+		if jobCount%10000 == 0 {
+			fmt.Println("Jobs added to job queue:", jobCount)
 		}
 	}
 }
