@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -
 
+## [v0.0.5] - 2023-03-02
+
+### Changed in v0.0.5
+
+- Added logging to job queue load go routine
+
 ## [v0.0.4] - 2023-03-01
 
 ### Changed in v0.0.4
