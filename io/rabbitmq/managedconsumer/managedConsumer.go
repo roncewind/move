@@ -148,6 +148,10 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 	jobCount := 0
 	//PONDER: what if something fails here?  how can we recover?
 	for delivery := range util.OrDone(ctx, deliveries) {
+		record, _ := szrecord.NewRecord(string(delivery.Body))
+		if record != nil {
+			fmt.Fprintf(os.Stderr, ">>>,%s-addToJobQ\n", record.Id)
+		}
 		jobQ <- &RabbitJob{
 			delivery: delivery,
 			engine:   engine,
