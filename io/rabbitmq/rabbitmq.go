@@ -128,13 +128,15 @@ func (client *Client) handleReconnect(addr string) {
 
 			select {
 			case <-client.done:
+				client.logger.Println("done.")
 				return
 			case <-time.After(client.reconnectDelay):
 				client.reconnectDelay = client.progressiveDelay(client.reconnectDelay)
 			}
+			client.logger.Println("continue.")
 			continue
 		}
-
+		client.logger.Println("set client.reconnectDelay:", client.ReconnectDelay)
 		client.reconnectDelay = client.ReconnectDelay
 		if done := client.handleReInit(conn); done {
 			break
