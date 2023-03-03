@@ -124,6 +124,7 @@ func (client *Client) handleReconnect(addr string) {
 		conn, err := client.connect(addr)
 
 		if err != nil {
+			client.logger.Println("Connect error:", err)
 			client.logger.Println("Failed to connect. Retrying in", client.reconnectDelay)
 
 			select {
