@@ -44,6 +44,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 	record, newRecordErr := szrecord.NewRecord(string(j.delivery.Body))
 	if newRecordErr == nil {
 		// fmt.Printf("Processing record: %s\n", record.Id)
+		fmt.Fprintf(os.Stderr, ">>>,%s-processing", record.Id)
 		loadID := "Load"
 		if j.withInfo {
 			var flags int64 = 0
@@ -67,9 +68,11 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 				//TODO: log a positive result?
 				// fmt.Printf("Record added: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 			}
+			fmt.Fprintf(os.Stderr, ">>>,%s-added", record.Id)
 		}
 
 		// when we successfully process a delivery, acknowledge it.
+		fmt.Fprintf(os.Stderr, ">>>,%s-acked", record.Id)
 		j.delivery.Ack(false)
 	} else {
 		// logger.LogMessageFromError(MessageIdFormat, 2001, "create new szRecord", newRecordErr)
@@ -152,7 +155,7 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 		}
 		jobCount++
 		if jobCount%10000 == 0 {
-			fmt.Println("Jobs added to job queue:", jobCount)
+			fmt.Println(time.Now(), "Jobs added to job queue:", jobCount)
 		}
 	}
 }
