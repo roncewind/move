@@ -136,14 +136,10 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 		cancel()
 		close(jobPool)
 		close(jobQ)
-		// drain the client pool, closing rabbit mq connections
-		var job *RabbitJob
+		// drain the job pool
 		ok := true
-		num := 0
 		for ok {
-			job, ok = <-jobPool
-			num++
-			fmt.Println("Job:", num, "re-used:", job.used)
+			_, ok = <-jobPool
 		}
 	}
 
