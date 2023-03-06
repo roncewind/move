@@ -17,6 +17,8 @@ import (
 	"github.com/senzing/g2-sdk-go/g2api"
 )
 
+var jobPool chan *RabbitJob
+
 // ----------------------------------------------------------------------------
 // Job implementation
 // ----------------------------------------------------------------------------
@@ -40,6 +42,7 @@ var _ workerpool.Job = (*RabbitJob)(nil)
 // Execute() is run once for each Job
 func (j *RabbitJob) Execute(ctx context.Context) error {
 	j.id = j.delivery.MessageId
+	defer func() { jobPool <- j }()
 	// fmt.Printf("Received a message- msgId: %s, msgCnt: %d, ConsumerTag: %s\n", j.id, j.delivery.MessageCount, j.delivery.ConsumerTag)
 	record, newRecordErr := szrecord.NewRecord(string(j.delivery.Body))
 	if newRecordErr == nil {
@@ -106,6 +109,8 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 
 	newClientFn := func() *rabbitmq.Client { return rabbitmq.NewClient(urlString) }
 
+	jobPool = make(chan *RabbitJob, numberOfWorkers)
+
 	// make a buffered channel with the space for all workers
 	//  workers will signal on this channel if they die
 	jobQ := make(chan workerpool.Job, numberOfWorkers)
@@ -135,6 +140,13 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, prefetch int, engine *g2api.G2engine, withInfo bool) {
 	client := newClientFn()
 	defer client.Close()
+
+	for i := 0; i < prefetch; i++ {
+		jobPool <- &RabbitJob{
+			engine:   engine,
+			withInfo: withInfo,
+		}
+	}
 	deliveries, err := client.Consume(prefetch)
 	if err != nil {
 		fmt.Println("Error getting delivery channel:", err)
@@ -144,11 +156,14 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 	jobCount := 0
 	//PONDER: what if something fails here?  how can we recover?
 	for delivery := range util.OrDone(ctx, deliveries) {
-		jobQ <- &RabbitJob{
-			delivery: delivery,
-			engine:   engine,
-			withInfo: withInfo,
-		}
+		job := <-jobPool
+		job.delivery = delivery
+		jobQ <- job
+		// jobQ <- &RabbitJob{
+		// 	delivery: delivery,
+		// 	engine:   engine,
+		// 	withInfo: withInfo,
+		// }
 		jobCount++
 		if jobCount%10000 == 0 {
 			fmt.Println(time.Now(), "Jobs added to job queue:", jobCount)
