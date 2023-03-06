@@ -109,7 +109,15 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 
 	newClientFn := func() *rabbitmq.Client { return rabbitmq.NewClient(urlString) }
 
+	fmt.Println(time.Now(), "Prime the job pool")
 	jobPool = make(chan *RabbitJob, numberOfWorkers)
+	for i := 0; i < numberOfWorkers; i++ {
+		jobPool <- &RabbitJob{
+			engine:   engine,
+			withInfo: withInfo,
+		}
+	}
+	fmt.Println(time.Now(), "Done priming the job pool")
 
 	// make a buffered channel with the space for all workers
 	//  workers will signal on this channel if they die
@@ -141,12 +149,6 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 	client := newClientFn()
 	defer client.Close()
 
-	for i := 0; i < prefetch; i++ {
-		jobPool <- &RabbitJob{
-			engine:   engine,
-			withInfo: withInfo,
-		}
-	}
 	deliveries, err := client.Consume(prefetch)
 	if err != nil {
 		fmt.Println("Error getting delivery channel:", err)
