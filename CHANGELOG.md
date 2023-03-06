@@ -8,7 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
--
+- added delay parameter
+
+## [v0.0.11] - 2023-03-06
+
+### Changed in v0.0.11
+
+- revert back to pre-debug versions
 
 ## [v0.0.7] - 2023-03-03
 
