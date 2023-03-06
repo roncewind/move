@@ -25,11 +25,12 @@ var jobPool chan *RabbitJob
 
 // define a structure that will implement the Job interface
 type RabbitJob struct {
-	delivery amqp.Delivery
-	engine   *g2api.G2engine
-	id       string
-	withInfo bool
-	used     int
+	delivery  amqp.Delivery
+	engine    *g2api.G2engine
+	id        int
+	messageId string
+	usedCount int
+	withInfo  bool
 }
 
 // ----------------------------------------------------------------------------
@@ -42,12 +43,12 @@ var _ workerpool.Job = (*RabbitJob)(nil)
 // Job interface implementation:
 // Execute() is run once for each Job
 func (j *RabbitJob) Execute(ctx context.Context) error {
-	j.id = j.delivery.MessageId
+	j.messageId = j.delivery.MessageId
 	defer func() {
-		j.used++
+		j.usedCount++
 		jobPool <- j
 	}()
-	// fmt.Printf("Received a message- msgId: %s, msgCnt: %d, ConsumerTag: %s\n", j.id, j.delivery.MessageCount, j.delivery.ConsumerTag)
+	// fmt.Printf("Received a message- msgId: %s, msgCnt: %d, ConsumerTag: %s\n", id, j.delivery.MessageCount, j.delivery.ConsumerTag)
 	record, newRecordErr := szrecord.NewRecord(string(j.delivery.Body))
 	if newRecordErr == nil {
 		loadID := "Load"
@@ -55,7 +56,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 			var flags int64 = 0
 			_, withInfoErr := (*j.engine).AddRecordWithInfo(ctx, record.DataSource, record.Id, record.Json, loadID, flags)
 			if withInfoErr != nil {
-				fmt.Println(time.Now(), "Error adding record withInfo:", j.id, "error:", withInfoErr)
+				fmt.Println(time.Now(), "Error adding record withInfo:", j.messageId, "error:", withInfoErr)
 				fmt.Printf("Record in error: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 				return withInfoErr
 			} else {
@@ -66,7 +67,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 		} else {
 			addRecordErr := (*j.engine).AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
 			if addRecordErr != nil {
-				fmt.Println(time.Now(), "Error adding record:", j.id, "error:", addRecordErr)
+				fmt.Println(time.Now(), "Error adding record:", j.messageId, "error:", addRecordErr)
 				fmt.Printf("Record in error: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 				return addRecordErr
 				// } else {
@@ -79,7 +80,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 		j.delivery.Ack(false)
 	} else {
 		// logger.LogMessageFromError(MessageIdFormat, 2001, "create new szRecord", newRecordErr)
-		fmt.Println(time.Now(), "Invalid delivery from RabbitMQ:", j.id)
+		fmt.Println(time.Now(), "Invalid delivery from RabbitMQ:", j.messageId)
 		// when we get an invalid delivery, negatively acknowledge and send to the dead letter queue
 		j.delivery.Nack(false, false)
 	}
@@ -90,7 +91,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 
 // Whenever Execute() returns an error or panics, this is called
 func (j *RabbitJob) OnError(err error) {
-	fmt.Println(j.id, "error", err)
+	fmt.Println(j.messageId, "error", err)
 	// when there's an error, negatively acknowledge and requeue
 	j.delivery.Nack(false, true)
 }
@@ -116,9 +117,10 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	jobPool = make(chan *RabbitJob, numberOfWorkers)
 	for i := 0; i < numberOfWorkers; i++ {
 		jobPool <- &RabbitJob{
-			engine:   engine,
-			withInfo: withInfo,
-			used:     0,
+			engine:    engine,
+			id:        i,
+			usedCount: 0,
+			withInfo:  withInfo,
 		}
 	}
 
@@ -137,9 +139,11 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 		close(jobPool)
 		close(jobQ)
 		// drain the job pool
+		var job *RabbitJob
 		ok := true
 		for ok {
-			_, ok = <-jobPool
+			job, ok = <-jobPool
+			fmt.Println("Job:", job.id, "used:", job.usedCount)
 		}
 	}
 
@@ -170,11 +174,6 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 		job := <-jobPool
 		job.delivery = delivery
 		jobQ <- job
-		// jobQ <- &RabbitJob{
-		// 	delivery: delivery,
-		// 	engine:   engine,
-		// 	withInfo: withInfo,
-		// }
 		jobCount++
 		if jobCount%10000 == 0 {
 			fmt.Println(time.Now(), "Jobs added to job queue:", jobCount)
