@@ -29,6 +29,7 @@ type RabbitJob struct {
 	engine   *g2api.G2engine
 	id       string
 	withInfo bool
+	used     int
 }
 
 // ----------------------------------------------------------------------------
@@ -42,7 +43,10 @@ var _ workerpool.Job = (*RabbitJob)(nil)
 // Execute() is run once for each Job
 func (j *RabbitJob) Execute(ctx context.Context) error {
 	j.id = j.delivery.MessageId
-	defer func() { jobPool <- j }()
+	defer func() {
+		j.used++
+		jobPool <- j
+	}()
 	// fmt.Printf("Received a message- msgId: %s, msgCnt: %d, ConsumerTag: %s\n", j.id, j.delivery.MessageCount, j.delivery.ConsumerTag)
 	record, newRecordErr := szrecord.NewRecord(string(j.delivery.Body))
 	if newRecordErr == nil {
@@ -109,15 +113,14 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 
 	newClientFn := func() *rabbitmq.Client { return rabbitmq.NewClient(urlString) }
 
-	fmt.Println(time.Now(), "Prime the job pool")
 	jobPool = make(chan *RabbitJob, numberOfWorkers)
 	for i := 0; i < numberOfWorkers; i++ {
 		jobPool <- &RabbitJob{
 			engine:   engine,
 			withInfo: withInfo,
+			used:     0,
 		}
 	}
-	fmt.Println(time.Now(), "Done priming the job pool")
 
 	// make a buffered channel with the space for all workers
 	//  workers will signal on this channel if they die
@@ -131,7 +134,17 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	// clean up after ourselves
 	cleanup := func() {
 		cancel()
+		close(jobPool)
 		close(jobQ)
+		// drain the client pool, closing rabbit mq connections
+		var job *RabbitJob
+		ok := true
+		num := 0
+		for ok {
+			job, ok = <-jobPool
+			num++
+			fmt.Println("Job:", num, "re-used:", job.used)
+		}
 	}
 
 	// when shutdown signalled by OS signal, wait for 5 seconds for graceful shutdown
