@@ -24,7 +24,7 @@ import (
 // define a structure that will implement the Job interface
 type RabbitJob struct {
 	delivery amqp.Delivery
-	engine   g2api.G2engine
+	engine   *g2api.G2engine
 	id       string
 	withInfo bool
 }
@@ -46,7 +46,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 		loadID := "Load"
 		if j.withInfo {
 			var flags int64 = 0
-			_, withInfoErr := j.engine.AddRecordWithInfo(ctx, record.DataSource, record.Id, record.Json, loadID, flags)
+			_, withInfoErr := (*j.engine).AddRecordWithInfo(ctx, record.DataSource, record.Id, record.Json, loadID, flags)
 			if withInfoErr != nil {
 				fmt.Println(time.Now(), "Error adding record withInfo:", j.id, "error:", withInfoErr)
 				fmt.Printf("Record in error: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
@@ -57,7 +57,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 				// fmt.Printf("WithInfo: %s\n", withInfo)
 			}
 		} else {
-			addRecordErr := j.engine.AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
+			addRecordErr := (*j.engine).AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
 			if addRecordErr != nil {
 				fmt.Println(time.Now(), "Error adding record:", j.id, "error:", addRecordErr)
 				fmt.Printf("Record in error: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
@@ -109,7 +109,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	// make a buffered channel with the space for all workers
 	//  workers will signal on this channel if they die
 	jobQ := make(chan workerpool.Job, numberOfWorkers)
-	go loadJobQueue(ctx, newClientFn, jobQ, numberOfWorkers, engine, withInfo)
+	go loadJobQueue(ctx, newClientFn, jobQ, numberOfWorkers, &engine, withInfo)
 
 	// create and start up the workerpool
 	wp, _ := workerpool.NewWorkerPool(numberOfWorkers, jobQ)
@@ -132,7 +132,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 // ----------------------------------------------------------------------------
 
 // create Jobs and put them into the job queue
-func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, prefetch int, engine g2api.G2engine, withInfo bool) {
+func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, prefetch int, engine *g2api.G2engine, withInfo bool) {
 	client := newClientFn()
 	defer client.Close()
 	deliveries, err := client.Consume(prefetch)
