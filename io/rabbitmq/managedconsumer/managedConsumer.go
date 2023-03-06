@@ -43,8 +43,6 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 	// fmt.Printf("Received a message- msgId: %s, msgCnt: %d, ConsumerTag: %s\n", j.id, j.delivery.MessageCount, j.delivery.ConsumerTag)
 	record, newRecordErr := szrecord.NewRecord(string(j.delivery.Body))
 	if newRecordErr == nil {
-		// fmt.Printf("Processing record: %s\n", record.Id)
-		fmt.Fprintf(os.Stderr, ">>>,%s-processing\n", record.Id)
 		loadID := "Load"
 		if j.withInfo {
 			var flags int64 = 0
@@ -68,11 +66,9 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 				//TODO: log a positive result?
 				// fmt.Printf("Record added: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 			}
-			fmt.Fprintf(os.Stderr, ">>>,%s-added\n", record.Id)
 		}
 
 		// when we successfully process a delivery, acknowledge it.
-		fmt.Fprintf(os.Stderr, ">>>,%s-acked\n", record.Id)
 		j.delivery.Ack(false)
 	} else {
 		// logger.LogMessageFromError(MessageIdFormat, 2001, "create new szRecord", newRecordErr)
@@ -148,10 +144,6 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 	jobCount := 0
 	//PONDER: what if something fails here?  how can we recover?
 	for delivery := range util.OrDone(ctx, deliveries) {
-		record, _ := szrecord.NewRecord(string(delivery.Body))
-		if record != nil {
-			fmt.Fprintf(os.Stderr, ">>>,%s-addToJobQ\n", record.Id)
-		}
 		jobQ <- &RabbitJob{
 			delivery: delivery,
 			engine:   engine,
