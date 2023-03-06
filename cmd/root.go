@@ -29,6 +29,7 @@ import (
 )
 
 const (
+	delayInSeconds         string = "delay-in-seconds"
 	envVarPrefix           string = "SENZING_TOOLS"
 	envVarReplacerCharNew  string = "_"
 	envVarReplacerCharOld  string = "-"
@@ -45,6 +46,7 @@ var (
 )
 
 var (
+	delay      int = 0
 	cfgFile    string
 	exchange   string = "senzing"
 	fileType   string
@@ -94,6 +96,8 @@ var RootCmd = &cobra.Command{
 		for _, key := range viper.AllKeys() {
 			fmt.Println("  - ", key, " = ", viper.Get(key))
 		}
+		fmt.Println(time.Now(), "Sleep for 60 seconds to let RabbitMQ and Postgres settle down and come up.")
+		time.Sleep(time.Duration(delay) * time.Second)
 
 		if viper.IsSet(inputURLParameter) &&
 			viper.IsSet(outputURLParameter) {
@@ -355,12 +359,18 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
+	RootCmd.Flags().IntVarP(&delay, delayInSeconds, "", 0, "time to wait before start of processing")
+	viper.BindPFlag(delayInSeconds, RootCmd.Flags().Lookup(delayInSeconds))
+
 	RootCmd.Flags().StringVarP(&fileType, inputFileTypeParameter, "", "", "file type override")
 	viper.BindPFlag(inputFileTypeParameter, RootCmd.Flags().Lookup(inputFileTypeParameter))
+
 	RootCmd.Flags().StringVarP(&inputURL, inputURLParameter, "i", "", "input location")
 	viper.BindPFlag(inputURLParameter, RootCmd.Flags().Lookup(inputURLParameter))
+
 	RootCmd.Flags().StringVarP(&logLevel, logLevelParameter, "", "", "set the logging level, default Error")
 	viper.BindPFlag(logLevelParameter, RootCmd.Flags().Lookup(logLevelParameter))
+
 	RootCmd.Flags().StringVarP(&outputURL, outputURLParameter, "o", "", "output location")
 	viper.BindPFlag(outputURLParameter, RootCmd.Flags().Lookup(outputURLParameter))
 }
@@ -401,16 +411,34 @@ func initConfig() {
 	replacer := strings.NewReplacer(envVarReplacerCharOld, envVarReplacerCharNew)
 	viper.SetEnvKeyReplacer(replacer)
 	viper.SetEnvPrefix(envVarPrefix)
+	viper.BindEnv(delayInSeconds)
 	viper.BindEnv(inputFileTypeParameter)
 	viper.BindEnv(inputURLParameter)
 	viper.BindEnv(logLevelParameter)
 	viper.BindEnv(outputURLParameter)
 
+	// cmdline args should get set in viper, but for some reason that's
+	// not happening when called from senzing-tools, this is the work around:
+	if delay > 0 {
+		viper.Set(delayInSeconds, delay)
+	}
+	if len(fileType) > 0 {
+		viper.Set(inputFileTypeParameter, fileType)
+	}
+	if len(inputURL) > 0 {
+		viper.Set(inputURLParameter, inputURL)
+	}
+	if len(logLevel) > 0 {
+		viper.Set(logLevelParameter, logLevel)
+	}
+
+	viper.SetDefault(delayInSeconds, 0)
 	viper.SetDefault(logLevelParameter, "error")
 
 	// setup local variables, in case they came from a config file
 	//TODO:  why do I have to do this?  env vars and cmdline params get mapped
 	//  automatically, this is only IF the var is in the config file
+	delay = viper.GetInt(delayInSeconds)
 	fileType = viper.GetString(inputFileTypeParameter)
 	inputURL = viper.GetString(inputURLParameter)
 	logLevel = viper.GetString(logLevelParameter)
