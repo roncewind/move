@@ -96,7 +96,7 @@ var RootCmd = &cobra.Command{
 		for _, key := range viper.AllKeys() {
 			fmt.Println("  - ", key, " = ", viper.Get(key))
 		}
-		fmt.Println(time.Now(), "Sleep for 60 seconds to let RabbitMQ and Postgres settle down and come up.")
+		fmt.Println(time.Now(), "Sleep for", delay, "seconds to let RabbitMQ and Postgres settle down and come up.")
 		time.Sleep(time.Duration(delay) * time.Second)
 
 		if viper.IsSet(inputURLParameter) &&
