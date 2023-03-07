@@ -28,7 +28,6 @@ type RabbitJob struct {
 	delivery  amqp.Delivery
 	engine    *g2api.G2engine
 	id        int
-	messageId string
 	usedCount int
 	withInfo  bool
 }
@@ -43,7 +42,7 @@ var _ workerpool.Job = (*RabbitJob)(nil)
 // Job interface implementation:
 // Execute() is run once for each Job
 func (j *RabbitJob) Execute(ctx context.Context) error {
-	j.messageId = j.delivery.MessageId
+	// increment the number of times this job struct was used and return to the pool
 	defer func() {
 		j.usedCount++
 		jobPool <- j
@@ -56,23 +55,19 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 			var flags int64 = 0
 			_, withInfoErr := (*j.engine).AddRecordWithInfo(ctx, record.DataSource, record.Id, record.Json, loadID, flags)
 			if withInfoErr != nil {
-				fmt.Println(time.Now(), "Error adding record withInfo:", j.messageId, "error:", withInfoErr)
+				fmt.Println(time.Now(), "Error adding record:", j.delivery.MessageId, "error:", withInfoErr)
 				fmt.Printf("Record in error: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 				return withInfoErr
-			} else {
-				//TODO:  what do we do with the record here?
-				// fmt.Printf("Record added: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
-				// fmt.Printf("WithInfo: %s\n", withInfo)
 			}
+			//TODO:  what do we do with the "withInfo" data here?
+			// fmt.Printf("Record added: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
+			// fmt.Printf("WithInfo: %s\n", withInfo)
 		} else {
 			addRecordErr := (*j.engine).AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
 			if addRecordErr != nil {
-				fmt.Println(time.Now(), "Error adding record:", j.messageId, "error:", addRecordErr)
+				fmt.Println(time.Now(), "Error adding record:", j.delivery.MessageId, "error:", addRecordErr)
 				fmt.Printf("Record in error: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 				return addRecordErr
-				// } else {
-				//TODO: log a positive result?
-				// fmt.Printf("Record added: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 			}
 		}
 
@@ -80,7 +75,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 		j.delivery.Ack(false)
 	} else {
 		// logger.LogMessageFromError(MessageIdFormat, 2001, "create new szRecord", newRecordErr)
-		fmt.Println(time.Now(), "Invalid delivery from RabbitMQ:", j.messageId)
+		fmt.Println(time.Now(), "Invalid delivery from RabbitMQ:", j.delivery.MessageId)
 		// when we get an invalid delivery, negatively acknowledge and send to the dead letter queue
 		j.delivery.Nack(false, false)
 	}
@@ -91,9 +86,13 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 
 // Whenever Execute() returns an error or panics, this is called
 func (j *RabbitJob) OnError(err error) {
-	fmt.Println(j.messageId, "error", err)
-	// when there's an error, negatively acknowledge and requeue
-	j.delivery.Nack(false, true)
+	// TODO: look at the error codes and only requeue when they are retryable
+	// for now, just requeue if they haven't been requeued before
+	if j.delivery.Redelivered {
+		j.delivery.Nack(false, false)
+	} else {
+		j.delivery.Nack(false, true)
+	}
 }
 
 // ----------------------------------------------------------------------------
