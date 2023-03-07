@@ -163,7 +163,7 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 
 	deliveries, err := client.Consume(prefetch)
 	if err != nil {
-		fmt.Println("Error getting delivery channel:", err)
+		fmt.Println(time.Now(), "Error getting delivery channel:", err)
 		return
 	}
 
@@ -178,6 +178,7 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 			fmt.Println(time.Now(), "Jobs added to job queue:", jobCount)
 		}
 	}
+	fmt.Println(time.Now(), "Total number of jobs:", jobCount)
 }
 
 // ----------------------------------------------------------------------------

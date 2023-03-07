@@ -23,8 +23,7 @@ var jobQ chan workerpool.Job
 
 // define a structure that will implement the Job interface
 type RabbitJob struct {
-	// clientPool chan *rabbitmq.Client
-	id          string
+	id          int
 	newClientFn func() *rabbitmq.Client
 	record      rabbitmq.Record
 }
@@ -38,25 +37,25 @@ var _ workerpool.Job = (*RabbitJob)(nil)
 
 // Job interface implementation:
 // Execute() is run once for each Job
-func (j *RabbitJob) Execute(ctx context.Context) error {
+func (j *RabbitJob) Execute(ctx context.Context) (err error) {
 	client := <-clientPool
-	err := client.Push(j.record)
+	err = client.Push(j.record)
 	if err != nil {
 		//put a new client in the pool, dropping the current one
 		clientPool <- j.newClientFn()
 		client.Close()
-		return err
+		return
 	}
 	// return the client to the pool when done
 	clientPool <- client
-	return nil
+	return
 }
 
 // ----------------------------------------------------------------------------
 
 // Whenever Execute() returns an error or panics, this is called
 func (j *RabbitJob) OnError(err error) {
-	fmt.Println(j.id, "error", err)
+	fmt.Println(time.Now(), j.record.GetMessageId(), "error", err)
 	jobQ <- j
 }
 
@@ -131,14 +130,12 @@ func loadJobQueue(ctx context.Context, clientPool chan *rabbitmq.Client, newClie
 	jobCount := 0
 	for record := range util.OrDone(ctx, recordchan) {
 		jobQ <- &RabbitJob{
-			// clientPool: clientPool,
-			id:          record.GetMessageId(),
+			id:          jobCount,
 			newClientFn: newClientFn,
 			record:      record,
 		}
 		jobCount++
 	}
-
 	fmt.Println(time.Now(), "Total number of jobs:", jobCount)
 }
 
