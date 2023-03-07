@@ -88,7 +88,14 @@ var RootCmd = &cobra.Command{
 	move --input-url "file:///path/to/json/lines/file.jsonl" --output-url "amqp://guest:guest@192.168.6.96:5672"
 	move --input-url "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl" --output-url "amqp://guest:guest@192.168.6.96:5672"
 `,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		viper.BindPFlag(delayInSeconds, cmd.Flags().Lookup(delayInSeconds))
+		viper.BindPFlag(inputFileTypeParameter, cmd.Flags().Lookup(inputFileTypeParameter))
+		viper.BindPFlag(inputURLParameter, cmd.Flags().Lookup(inputURLParameter))
+		viper.BindPFlag(logLevelParameter, cmd.Flags().Lookup(logLevelParameter))
+		viper.BindPFlag(outputURLParameter, cmd.Flags().Lookup(outputURLParameter))
 
+	},
 	// The core of this command:
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("start Run")
@@ -360,19 +367,10 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	RootCmd.Flags().IntVarP(&delay, delayInSeconds, "", 0, "time to wait before start of processing")
-	viper.BindPFlag(delayInSeconds, RootCmd.Flags().Lookup(delayInSeconds))
-
 	RootCmd.Flags().StringVarP(&fileType, inputFileTypeParameter, "", "", "file type override")
-	viper.BindPFlag(inputFileTypeParameter, RootCmd.Flags().Lookup(inputFileTypeParameter))
-
 	RootCmd.Flags().StringVarP(&inputURL, inputURLParameter, "i", "", "input location")
-	viper.BindPFlag(inputURLParameter, RootCmd.Flags().Lookup(inputURLParameter))
-
 	RootCmd.Flags().StringVarP(&logLevel, logLevelParameter, "", "", "set the logging level, default Error")
-	viper.BindPFlag(logLevelParameter, RootCmd.Flags().Lookup(logLevelParameter))
-
 	RootCmd.Flags().StringVarP(&outputURL, outputURLParameter, "o", "", "output location")
-	viper.BindPFlag(outputURLParameter, RootCmd.Flags().Lookup(outputURLParameter))
 }
 
 // ----------------------------------------------------------------------------
@@ -416,21 +414,6 @@ func initConfig() {
 	viper.BindEnv(inputURLParameter)
 	viper.BindEnv(logLevelParameter)
 	viper.BindEnv(outputURLParameter)
-
-	// cmdline args should get set in viper, but for some reason that's
-	// not happening when called from senzing-tools, this is the work around:
-	if delay > 0 {
-		viper.Set(delayInSeconds, delay)
-	}
-	if len(fileType) > 0 {
-		viper.Set(inputFileTypeParameter, fileType)
-	}
-	if len(inputURL) > 0 {
-		viper.Set(inputURLParameter, inputURL)
-	}
-	if len(logLevel) > 0 {
-		viper.Set(logLevelParameter, logLevel)
-	}
 
 	viper.SetDefault(delayInSeconds, 0)
 	viper.SetDefault(logLevelParameter, "error")
