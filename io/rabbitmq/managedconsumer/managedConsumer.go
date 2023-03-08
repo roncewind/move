@@ -101,7 +101,7 @@ func (j *RabbitJob) OnError(err error) {
 // the given queue.
 // - Workers restart when they are killed or die.
 // - respond to standard system signals.
-func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers int, engine *g2api.G2engine, withInfo bool) chan struct{} {
+func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers int, createG2Engine func() *g2api.G2engine, withInfo bool) chan struct{} {
 
 	//default to the max number of OS threads
 	if numberOfWorkers <= 0 {
@@ -116,7 +116,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	jobPool = make(chan *RabbitJob, numberOfWorkers)
 	for i := 0; i < numberOfWorkers; i++ {
 		jobPool <- &RabbitJob{
-			engine:    engine,
+			engine:    createG2Engine(),
 			id:        i,
 			usedCount: 0,
 			withInfo:  withInfo,
@@ -126,7 +126,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	// make a buffered channel with the space for all workers
 	//  workers will signal on this channel if they die
 	jobQ := make(chan workerpool.Job, numberOfWorkers)
-	go loadJobQueue(ctx, newClientFn, jobQ, numberOfWorkers, engine, withInfo)
+	go loadJobQueue(ctx, newClientFn, jobQ, numberOfWorkers)
 
 	// create and start up the workerpool
 	wp, _ := workerpool.NewWorkerPool(numberOfWorkers, jobQ)
@@ -142,6 +142,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 		ok := true
 		for ok {
 			job, ok = <-jobPool
+			(*job.engine).Destroy(ctx)
 			fmt.Println("Job:", job.id, "used:", job.usedCount)
 		}
 	}
