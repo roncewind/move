@@ -157,11 +157,11 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 // ----------------------------------------------------------------------------
 
 // create Jobs and put them into the job queue
-func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, prefetch int, engine *g2api.G2engine, withInfo bool) {
+func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, prefetch int) {
 	client := newClientFn()
 	defer client.Close()
 
-	deliveries, err := client.Consume(prefetch * 50)
+	deliveries, err := client.Consume(prefetch)
 	if err != nil {
 		fmt.Println(time.Now(), "Error getting delivery channel:", err)
 		return
