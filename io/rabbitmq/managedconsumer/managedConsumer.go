@@ -161,7 +161,7 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 	client := newClientFn()
 	defer client.Close()
 
-	deliveries, err := client.Consume(prefetch)
+	deliveries, err := client.Consume(prefetch * 50)
 	if err != nil {
 		fmt.Println(time.Now(), "Error getting delivery channel:", err)
 		return
