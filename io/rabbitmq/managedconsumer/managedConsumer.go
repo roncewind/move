@@ -63,13 +63,12 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 			// fmt.Printf("Record added: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 			// fmt.Printf("WithInfo: %s\n", withInfo)
 		} else {
-			time.Sleep(1 * time.Millisecond)
-			// addRecordErr := (*j.engine).AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
-			// if addRecordErr != nil {
-			// 	fmt.Println(time.Now(), "Error adding record:", j.delivery.MessageId, "error:", addRecordErr)
-			// 	fmt.Printf("Record in error: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
-			// 	return addRecordErr
-			// }
+			addRecordErr := (*j.engine).AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
+			if addRecordErr != nil {
+				fmt.Println(time.Now(), "Error adding record:", j.delivery.MessageId, "error:", addRecordErr)
+				fmt.Printf("Record in error: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
+				return addRecordErr
+			}
 		}
 
 		// when we successfully process a delivery, acknowledge it.
