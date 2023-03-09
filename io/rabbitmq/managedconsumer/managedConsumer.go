@@ -18,6 +18,7 @@ import (
 )
 
 var jobPool chan *RabbitJob
+var ackChan chan amqp.Delivery
 
 // ----------------------------------------------------------------------------
 // Job implementation
@@ -72,7 +73,8 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 		}
 
 		// when we successfully process a delivery, acknowledge it.
-		go j.delivery.Ack(false)
+		//j.delivery.Ack(false)
+		ackChan <- j.delivery
 	} else {
 		// logger.LogMessageFromError(MessageIdFormat, 2001, "create new szRecord", newRecordErr)
 		fmt.Println(time.Now(), "Invalid delivery from RabbitMQ:", j.delivery.MessageId)
@@ -110,6 +112,20 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	fmt.Println(time.Now(), "Number of consumer workers:", numberOfWorkers)
 
 	ctx, cancel := context.WithCancel(ctx)
+
+	ackChan = make(chan amqp.Delivery, numberOfWorkers)
+	go func() {
+		ackCount := 0
+		timer := time.NewTimer(5 * time.Second)
+		for delivery := range util.OrDone(ctx, ackChan) {
+			ackCount++
+			if timer.Stop() {
+				delivery.Ack(true)
+				fmt.Println(time.Now(), "Acked records:", ackCount)
+				timer.Reset(5 * time.Second)
+			}
+		}
+	}()
 
 	newClientFn := func() *rabbitmq.Client { return rabbitmq.NewClient(urlString) }
 
