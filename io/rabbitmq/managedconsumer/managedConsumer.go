@@ -72,7 +72,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 		}
 
 		// when we successfully process a delivery, acknowledge it.
-		j.delivery.Ack(false)
+		go j.delivery.Ack(false)
 	} else {
 		// logger.LogMessageFromError(MessageIdFormat, 2001, "create new szRecord", newRecordErr)
 		fmt.Println(time.Now(), "Invalid delivery from RabbitMQ:", j.delivery.MessageId)
