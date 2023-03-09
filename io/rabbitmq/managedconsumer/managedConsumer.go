@@ -75,6 +75,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 		// when we successfully process a delivery, acknowledge it.
 		//j.delivery.Ack(false)
 		ackChan <- j.delivery
+		fmt.Println("Add to ackChan", j.delivery.MessageId)
 	} else {
 		// logger.LogMessageFromError(MessageIdFormat, 2001, "create new szRecord", newRecordErr)
 		fmt.Println(time.Now(), "Invalid delivery from RabbitMQ:", j.delivery.MessageId)
@@ -113,11 +114,13 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	ackChan = make(chan amqp.Delivery, numberOfWorkers)
+	ackChan = make(chan amqp.Delivery, numberOfWorkers*50)
 	go func() {
 		ackCount := 0
 		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
 		for delivery := range util.OrDone(ctx, ackChan) {
+			fmt.Println("Ack?", delivery.MessageId)
 			ackCount++
 			select {
 			case <-ticker.C:
