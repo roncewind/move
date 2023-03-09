@@ -116,13 +116,14 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	ackChan = make(chan amqp.Delivery, numberOfWorkers)
 	go func() {
 		ackCount := 0
-		timer := time.NewTimer(5 * time.Second)
+		ticker := time.NewTicker(time.Second)
 		for delivery := range util.OrDone(ctx, ackChan) {
 			ackCount++
-			if timer.Stop() {
+			select {
+			case <-ticker.C:
 				delivery.Ack(true)
 				fmt.Println(time.Now(), "Acked records:", ackCount)
-				timer.Reset(5 * time.Second)
+			default:
 			}
 		}
 	}()
