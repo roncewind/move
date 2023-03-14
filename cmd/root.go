@@ -1,28 +1,14 @@
-/*
-Copyright © 2022 Ron Lynn <dad@lynntribe.net>
-*/
 package cmd
 
 import (
-	"bufio"
-	"encoding/json"
-	"runtime"
 	"time"
 
 	"fmt"
-	"io"
-	"log"
-	"net"
-	"net/http"
-	"net/url"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/docktermj/go-xyzzy-helpers/logger"
-	"github.com/roncewind/move/io/rabbitmq"
-	"github.com/roncewind/move/io/rabbitmq/managedproducer"
-	"github.com/roncewind/szrecord"
+	"github.com/roncewind/move/mover"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -37,6 +23,9 @@ const (
 	logLevelParameter      string = "log-level"
 	outputURLParameter     string = "output-url"
 )
+
+// move is 6202:  https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
+const MessageIdFormat = "senzing-6202%04d"
 
 var (
 	buildIteration string = "0"
@@ -53,26 +42,7 @@ var (
 	inputURL   string
 	logLevel   string = "error"
 	outputURL  string
-	waitGroup  sync.WaitGroup
 )
-
-type record struct {
-	line       string
-	fileName   string
-	lineNumber int
-}
-
-func (record record) GetMessage() string {
-	return record.line
-}
-
-func (record record) GetMessageId() string {
-	//TODO: meaningful or random MessageId?
-	return fmt.Sprintf("%s-%d", record.fileName, record.lineNumber)
-}
-
-// move is 6202:  https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
-const MessageIdFormat = "senzing-6202%04d"
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -93,7 +63,6 @@ var RootCmd = &cobra.Command{
 		viper.BindPFlag(inputURLParameter, cmd.Flags().Lookup(inputURLParameter))
 		viper.BindPFlag(logLevelParameter, cmd.Flags().Lookup(logLevelParameter))
 		viper.BindPFlag(outputURLParameter, cmd.Flags().Lookup(outputURLParameter))
-
 	},
 	// The core of this command:
 	Run: func(cmd *cobra.Command, args []string) {
@@ -108,235 +77,20 @@ var RootCmd = &cobra.Command{
 		if viper.IsSet(inputURLParameter) &&
 			viper.IsSet(outputURLParameter) {
 
-			waitGroup.Add(2)
-			recordchan := make(chan rabbitmq.Record, 10)
-			go read(viper.GetString(inputURLParameter), recordchan)
-			go write(viper.GetString(outputURLParameter), recordchan)
-			waitGroup.Wait()
+			mover := &mover.MoverImpl{
+				FileType:  viper.GetString(inputFileTypeParameter),
+				InputURL:  viper.GetString(inputURLParameter),
+				LogLevel:  viper.GetString(logLevelParameter),
+				OutputURL: viper.GetString(outputURLParameter),
+			}
+			mover.Move()
+
 		} else {
 			cmd.Help()
-			u, err := url.Parse(viper.GetString(outputURLParameter))
-			if err != nil {
-				panic(err)
-			}
-			printURL(u)
 			fmt.Println("Build Version:", buildVersion)
 			fmt.Println("Build Iteration:", buildIteration)
 		}
 	},
-}
-
-// ----------------------------------------------------------------------------
-func read(urlString string, recordchan chan rabbitmq.Record) {
-
-	defer waitGroup.Done()
-
-	//This assumes the URL includes a schema and path so, minimally:
-	//  "s://p" where the schema is 's' and 'p' is the complete path
-	if len(urlString) < 5 {
-		fmt.Printf("ERROR: check the inputURL parameter: %s\n", urlString)
-		return
-	}
-
-	fmt.Println("inputURL: ", urlString)
-	u, err := url.Parse(urlString)
-	if err != nil {
-		panic(err)
-	}
-	//printURL(u)
-	if u.Scheme == "file" {
-		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(fileType) == "JSONL" {
-			fmt.Println("Reading as a JSONL file.")
-			readJSONLFile(u.Path, recordchan)
-		} else {
-			valid := validate(u.Path)
-			fmt.Println("Is valid JSON?", valid)
-			//TODO: process JSON file?
-			close(recordchan)
-		}
-	} else if u.Scheme == "http" || u.Scheme == "https" {
-		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(fileType) == "JSONL" {
-			fmt.Println("Reading as a JSONL resource.")
-			readJSONLResource(u.Path, recordchan)
-		} else {
-			fmt.Println("If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
-		}
-	} else {
-		msg := fmt.Sprintf("We don't handle %s input URLs.", u.Scheme)
-		panic(msg)
-	}
-}
-
-// ----------------------------------------------------------------------------
-func write(urlString string, recordchan chan rabbitmq.Record) {
-	fmt.Println("Enter write")
-	defer waitGroup.Done()
-	fmt.Println("Write URL string: ", urlString)
-	u, err := url.Parse(urlString)
-	if err != nil {
-		panic(err)
-	}
-	printURL(u)
-
-	// set number of workers to runtime.GOMAXPROCS(0)
-	<-managedproducer.StartManagedProducer(urlString, runtime.GOMAXPROCS(0), recordchan)
-	fmt.Println("So long and thanks for all the fish.")
-}
-
-// ----------------------------------------------------------------------------
-func readJSONLResource(jsonURL string, recordchan chan rabbitmq.Record) {
-	response, err := http.Get(jsonURL)
-	if err != nil {
-		panic(err)
-	}
-	defer response.Body.Close()
-
-	scanner := bufio.NewScanner(response.Body)
-	scanner.Split(bufio.ScanLines)
-
-	fmt.Println(time.Now(), "Start resource read", jsonURL)
-	i := 0
-	for scanner.Scan() {
-		i++
-		str := strings.TrimSpace(scanner.Text())
-		// ignore blank lines
-		if len(str) > 0 {
-			valid, err := szrecord.Validate(str)
-			if valid {
-				recordchan <- record{str, jsonURL, i}
-			} else {
-				fmt.Println("Line", i, err)
-			}
-		}
-		if i%10000 == 0 {
-			fmt.Println(time.Now(), "Records sent to queue:", i)
-		}
-	}
-	close(recordchan)
-	fmt.Println(time.Now(), "Record channel close for resource", jsonURL)
-}
-
-// ----------------------------------------------------------------------------
-func readJSONLFile(jsonFile string, recordchan chan rabbitmq.Record) {
-	file, err := os.Open(jsonFile)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanLines)
-
-	fmt.Println(time.Now(), "Start file read", jsonFile)
-	i := 0
-	for scanner.Scan() {
-		i++
-		str := strings.TrimSpace(scanner.Text())
-		// ignore blank lines
-		if len(str) > 0 {
-			valid, err := szrecord.Validate(str)
-			if valid {
-				recordchan <- record{str, jsonFile, i}
-			} else {
-				fmt.Println("Line", i, err)
-			}
-		}
-		if i%10000 == 0 {
-			fmt.Println(time.Now(), "Records sent to queue:", i)
-		}
-	}
-	close(recordchan)
-	fmt.Println(time.Now(), "Record channel close for file", jsonFile)
-}
-
-// ----------------------------------------------------------------------------
-func validate(jsonFile string) bool {
-
-	var file *os.File = os.Stdin
-
-	if jsonFile != "" {
-		var err error
-		file, err = os.Open(jsonFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	info, err := file.Stat()
-	if err != nil {
-		panic(err)
-	}
-	if info.Size() <= 0 {
-		log.Fatal("No file found to validate.")
-	}
-	printFileInfo(info)
-
-	bytes := GetBytes(file)
-	if err := file.Close(); err != nil {
-		log.Fatal(err)
-	}
-
-	valid := json.Valid(bytes)
-	return valid
-}
-
-// ----------------------------------------------------------------------------
-func GetBytes(file *os.File) []byte {
-
-	reader := bufio.NewReader(file)
-	var output []byte
-
-	for {
-		input, err := reader.ReadByte()
-		if err != nil && err == io.EOF {
-			break
-		}
-		output = append(output, input)
-	}
-	return output
-}
-
-// ----------------------------------------------------------------------------
-func printFileInfo(info os.FileInfo) {
-	fmt.Println("name: ", info.Name())
-	fmt.Println("size: ", info.Size())
-	fmt.Println("mode: ", info.Mode())
-	fmt.Println("mod time: ", info.ModTime())
-	fmt.Println("is dir: ", info.IsDir())
-	if info.Mode()&os.ModeDevice == os.ModeDevice {
-		fmt.Println("detected device: ", os.ModeDevice)
-	}
-	if info.Mode()&os.ModeCharDevice == os.ModeCharDevice {
-		fmt.Println("detected char device: ", os.ModeCharDevice)
-	}
-	if info.Mode()&os.ModeNamedPipe == os.ModeNamedPipe {
-		fmt.Println("detected named pipe: ", os.ModeNamedPipe)
-	}
-}
-
-// ----------------------------------------------------------------------------
-func printURL(u *url.URL) {
-
-	fmt.Println("\tScheme: ", u.Scheme)
-	fmt.Println("\tUser full: ", u.User)
-	fmt.Println("\tUser name: ", u.User.Username())
-	p, _ := u.User.Password()
-	fmt.Println("\tPassword: ", p)
-
-	fmt.Println("\tHost full: ", u.Host)
-	host, port, _ := net.SplitHostPort(u.Host)
-	fmt.Println("\tHost: ", host)
-	fmt.Println("\tPort: ", port)
-
-	fmt.Println("\tPath: ", u.Path)
-	fmt.Println("\tFragment: ", u.Fragment)
-
-	fmt.Println("\tQuery string: ", u.RawQuery)
-	m, _ := url.ParseQuery(u.RawQuery)
-	fmt.Println("\tParsed query string: ", m)
-	for key, value := range m {
-		fmt.Println("Key:", key, "=>", "Value:", value[0])
-	}
-
 }
 
 // ----------------------------------------------------------------------------
