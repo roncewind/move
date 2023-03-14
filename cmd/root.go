@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"time"
 
 	"fmt"
@@ -77,13 +78,15 @@ var RootCmd = &cobra.Command{
 		if viper.IsSet(inputURLParameter) &&
 			viper.IsSet(outputURLParameter) {
 
+			ctx := context.Background()
+
 			mover := &mover.MoverImpl{
 				FileType:  viper.GetString(inputFileTypeParameter),
 				InputURL:  viper.GetString(inputURLParameter),
 				LogLevel:  viper.GetString(logLevelParameter),
 				OutputURL: viper.GetString(outputURLParameter),
 			}
-			mover.Move()
+			mover.Move(ctx)
 
 		} else {
 			cmd.Help()

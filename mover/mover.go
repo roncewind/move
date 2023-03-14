@@ -2,6 +2,7 @@ package mover
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,6 +32,11 @@ type MoverImpl struct {
 	OutputURL string
 }
 
+// ----------------------------------------------------------------------------
+
+// Check at compile time that the implementation adheres to the interface.
+var _ Mover = (*MoverImpl)(nil)
+
 var (
 	waitGroup sync.WaitGroup
 )
@@ -40,16 +46,16 @@ var (
 // move records from one place to another.  validates each record as they are
 // read and only moves valid records.  typically used to move records from
 // a file to a queue for processing.
-func (m *MoverImpl) Move() {
+func (m *MoverImpl) Move(ctx context.Context) {
 	waitGroup.Add(2)
 	recordchan := make(chan rabbitmq.Record, 10)
-	go m.read(recordchan)
-	go m.write(recordchan)
+	go m.read(ctx, recordchan)
+	go m.write(ctx, recordchan)
 	waitGroup.Wait()
 }
 
 // ----------------------------------------------------------------------------
-func (m *MoverImpl) read(recordchan chan rabbitmq.Record) {
+func (m *MoverImpl) read(ctx context.Context, recordchan chan rabbitmq.Record) {
 
 	defer waitGroup.Done()
 
@@ -90,7 +96,7 @@ func (m *MoverImpl) read(recordchan chan rabbitmq.Record) {
 }
 
 // ----------------------------------------------------------------------------
-func (m *MoverImpl) write(recordchan chan rabbitmq.Record) {
+func (m *MoverImpl) write(ctx context.Context, recordchan chan rabbitmq.Record) {
 	fmt.Println("Enter write")
 	defer waitGroup.Done()
 	fmt.Println("Write URL string: ", m.OutputURL)
@@ -101,7 +107,7 @@ func (m *MoverImpl) write(recordchan chan rabbitmq.Record) {
 	printURL(u)
 
 	// set number of workers to runtime.GOMAXPROCS(0)
-	<-managedproducer.StartManagedProducer(m.OutputURL, runtime.GOMAXPROCS(0), recordchan)
+	<-managedproducer.StartManagedProducer(ctx, m.OutputURL, runtime.GOMAXPROCS(0), recordchan)
 	fmt.Println("So long and thanks for all the fish.")
 }
 

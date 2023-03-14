@@ -65,7 +65,7 @@ func (j *RabbitJob) OnError(err error) {
 // the given queue.
 // - Workers restart when they are killed or die.
 // - respond to standard system signals.
-func StartManagedProducer(urlString string, numberOfWorkers int, recordchan chan rabbitmq.Record) chan struct{} {
+func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers int, recordchan chan rabbitmq.Record) chan struct{} {
 
 	//default to the max number of OS threads
 	if numberOfWorkers <= 0 {
@@ -73,7 +73,7 @@ func StartManagedProducer(urlString string, numberOfWorkers int, recordchan chan
 	}
 	fmt.Println(time.Now(), "Number of producer workers:", numberOfWorkers)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 
 	clientPool = make(chan *rabbitmq.Client, numberOfWorkers)
 	newClientFn := func() *rabbitmq.Client { return rabbitmq.NewClient(urlString) }
