@@ -18,7 +18,7 @@ import (
 
 	"github.com/roncewind/move/io/rabbitmq"
 	"github.com/roncewind/move/io/rabbitmq/managedproducer"
-	"github.com/roncewind/szrecord"
+	"github.com/senzing/go-common/record"
 )
 
 // ----------------------------------------------------------------------------
@@ -129,9 +129,9 @@ func readJSONLResource(jsonURL string, recordchan chan rabbitmq.Record) {
 		str := strings.TrimSpace(scanner.Text())
 		// ignore blank lines
 		if len(str) > 0 {
-			valid, err := szrecord.Validate(str)
+			valid, err := record.Validate(str)
 			if valid {
-				recordchan <- &record{str, jsonURL, i}
+				recordchan <- &szRecord{str, jsonURL, i}
 			} else {
 				fmt.Println("Line", i, err)
 			}
@@ -162,9 +162,9 @@ func readJSONLFile(jsonFile string, recordchan chan rabbitmq.Record) {
 		str := strings.TrimSpace(scanner.Text())
 		// ignore blank lines
 		if len(str) > 0 {
-			valid, err := szrecord.Validate(str)
+			valid, err := record.Validate(str)
 			if valid {
-				recordchan <- &record{str, jsonFile, i}
+				recordchan <- &szRecord{str, jsonFile, i}
 			} else {
 				fmt.Println("Line", i, err)
 			}
@@ -271,17 +271,17 @@ func printURL(u *url.URL) {
 // record implementation
 // ----------------------------------------------------------------------------
 
-type record struct {
+type szRecord struct {
 	line       string
 	fileName   string
 	lineNumber int
 }
 
-func (r *record) GetMessage() string {
+func (r *szRecord) GetMessage() string {
 	return r.line
 }
 
-func (r *record) GetMessageId() string {
+func (r *szRecord) GetMessageId() string {
 	//TODO: meaningful or random MessageId?
 	return fmt.Sprintf("%s-%d", r.fileName, r.lineNumber)
 }

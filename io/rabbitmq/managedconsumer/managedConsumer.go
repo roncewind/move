@@ -12,9 +12,9 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/roncewind/go-util/util"
 	"github.com/roncewind/move/io/rabbitmq"
-	"github.com/roncewind/szrecord"
 	"github.com/roncewind/workerpool"
 	"github.com/senzing/g2-sdk-go/g2api"
+	"github.com/senzing/go-common/record"
 )
 
 var jobPool chan *RabbitJob
@@ -48,7 +48,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 		jobPool <- j
 	}()
 	// fmt.Printf("Received a message- msgId: %s, msgCnt: %d, ConsumerTag: %s\n", id, j.delivery.MessageCount, j.delivery.ConsumerTag)
-	record, newRecordErr := szrecord.NewRecord(string(j.delivery.Body))
+	record, newRecordErr := record.NewRecord(string(j.delivery.Body))
 	if newRecordErr == nil {
 		loadID := "Load"
 		if j.withInfo {
