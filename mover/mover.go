@@ -2,6 +2,7 @@ package mover
 
 import (
 	"bufio"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -76,6 +77,9 @@ func (m *MoverImpl) read(ctx context.Context, recordchan chan rabbitmq.Record) {
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(m.FileType) == "JSONL" {
 			fmt.Println("Reading as a JSONL file.")
 			readJSONLFile(u.Path, recordchan)
+		} else if strings.HasSuffix(u.Path, "gz") || strings.ToUpper(m.FileType) == "GZ" {
+			fmt.Println("Reading as a GZ file.")
+			readGZFile(u.Path, recordchan)
 		} else {
 			valid := validate(u.Path)
 			fmt.Println("Is valid JSON?", valid)
@@ -175,6 +179,45 @@ func readJSONLFile(jsonFile string, recordchan chan rabbitmq.Record) {
 	}
 	close(recordchan)
 	fmt.Println(time.Now(), "Record channel close for file", jsonFile)
+}
+
+// ----------------------------------------------------------------------------
+func readGZFile(gzFile string, recordchan chan rabbitmq.Record) {
+	gzipfile, err := os.Open(gzFile)
+	if err != nil {
+		panic(err)
+	}
+	defer gzipfile.Close()
+
+	reader, err := gzip.NewReader(gzipfile)
+	if err != nil {
+		panic(err)
+	}
+	defer reader.Close()
+
+	scanner := bufio.NewScanner(reader)
+	scanner.Split(bufio.ScanLines)
+
+	fmt.Println(time.Now(), "Start file read", gzFile)
+	i := 0
+	for scanner.Scan() {
+		i++
+		str := strings.TrimSpace(scanner.Text())
+		// ignore blank lines
+		if len(str) > 0 {
+			valid, err := record.Validate(str)
+			if valid {
+				recordchan <- &szRecord{str, gzFile, i}
+			} else {
+				fmt.Println("Line", i, err)
+			}
+		}
+		if i%10000 == 0 {
+			fmt.Println(time.Now(), "Records sent to queue:", i)
+		}
+	}
+	close(recordchan)
+	fmt.Println(time.Now(), "Record channel close for file", gzFile)
 }
 
 // ----------------------------------------------------------------------------
