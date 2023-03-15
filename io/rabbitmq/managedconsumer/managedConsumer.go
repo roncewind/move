@@ -97,8 +97,8 @@ func (j *RabbitJob) OnError(err error) {
 
 // ----------------------------------------------------------------------------
 
-// Starts a number of workers that push Records in the record channel to
-// the given queue.
+// Starts a number of workers that read Records from the given queue and add
+// them to Senzing.
 // - Workers restart when they are killed or die.
 // - respond to standard system signals.
 func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers int, g2engine *g2api.G2engine, withInfo bool) chan struct{} {
