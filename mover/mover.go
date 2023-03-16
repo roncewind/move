@@ -17,7 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/roncewind/move/io/rabbitmq"
+	"github.com/roncewind/go-util/queues"
+	"github.com/roncewind/go-util/util"
 	"github.com/roncewind/move/io/rabbitmq/managedproducer"
 	"github.com/senzing/go-common/record"
 )
@@ -49,14 +50,14 @@ var (
 // a file to a queue for processing.
 func (m *MoverImpl) Move(ctx context.Context) {
 	waitGroup.Add(2)
-	recordchan := make(chan rabbitmq.Record, 10)
+	recordchan := make(chan queues.Record, 10)
 	go m.read(ctx, recordchan)
 	go m.write(ctx, recordchan)
 	waitGroup.Wait()
 }
 
 // ----------------------------------------------------------------------------
-func (m *MoverImpl) read(ctx context.Context, recordchan chan rabbitmq.Record) {
+func (m *MoverImpl) read(ctx context.Context, recordchan chan queues.Record) {
 
 	defer waitGroup.Done()
 
@@ -100,7 +101,7 @@ func (m *MoverImpl) read(ctx context.Context, recordchan chan rabbitmq.Record) {
 }
 
 // ----------------------------------------------------------------------------
-func (m *MoverImpl) write(ctx context.Context, recordchan chan rabbitmq.Record) {
+func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
 	fmt.Println("Enter write")
 	defer waitGroup.Done()
 	fmt.Println("Write URL string: ", m.OutputURL)
@@ -111,12 +112,12 @@ func (m *MoverImpl) write(ctx context.Context, recordchan chan rabbitmq.Record) 
 	printURL(u)
 
 	// set number of workers to runtime.GOMAXPROCS(0)
-	<-managedproducer.StartManagedProducer(ctx, m.OutputURL, runtime.GOMAXPROCS(0), recordchan)
+	<-util.OrDone(ctx, managedproducer.StartManagedProducer(ctx, m.OutputURL, runtime.GOMAXPROCS(0), recordchan))
 	fmt.Println("So long and thanks for all the fish.")
 }
 
 // ----------------------------------------------------------------------------
-func readJSONLResource(jsonURL string, recordchan chan rabbitmq.Record) {
+func readJSONLResource(jsonURL string, recordchan chan queues.Record) {
 	response, err := http.Get(jsonURL)
 	if err != nil {
 		panic(err)
@@ -149,7 +150,7 @@ func readJSONLResource(jsonURL string, recordchan chan rabbitmq.Record) {
 }
 
 // ----------------------------------------------------------------------------
-func readJSONLFile(jsonFile string, recordchan chan rabbitmq.Record) {
+func readJSONLFile(jsonFile string, recordchan chan queues.Record) {
 	file, err := os.Open(jsonFile)
 	if err != nil {
 		panic(err)
@@ -182,7 +183,7 @@ func readJSONLFile(jsonFile string, recordchan chan rabbitmq.Record) {
 }
 
 // ----------------------------------------------------------------------------
-func readGZFile(gzFile string, recordchan chan rabbitmq.Record) {
+func readGZFile(gzFile string, recordchan chan queues.Record) {
 	gzipfile, err := os.Open(gzFile)
 	if err != nil {
 		panic(err)

@@ -10,8 +10,8 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/roncewind/go-util/queues/rabbitmq"
 	"github.com/roncewind/go-util/util"
-	"github.com/roncewind/move/io/rabbitmq"
 	"github.com/roncewind/workerpool"
 	"github.com/senzing/g2-sdk-go/g2api"
 	"github.com/senzing/go-common/record"

@@ -9,8 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/roncewind/go-util/queues"
+	"github.com/roncewind/go-util/queues/rabbitmq"
 	"github.com/roncewind/go-util/util"
-	"github.com/roncewind/move/io/rabbitmq"
 	"github.com/roncewind/workerpool"
 )
 
@@ -25,7 +26,7 @@ var jobQ chan workerpool.Job
 type RabbitJob struct {
 	id          int
 	newClientFn func() *rabbitmq.Client
-	record      rabbitmq.Record
+	record      queues.Record
 }
 
 // ----------------------------------------------------------------------------
@@ -65,7 +66,7 @@ func (j *RabbitJob) OnError(err error) {
 // the given queue.
 // - Workers restart when they are killed or die.
 // - respond to standard system signals.
-func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers int, recordchan chan rabbitmq.Record) chan struct{} {
+func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers int, recordchan chan queues.Record) chan struct{} {
 
 	//default to the max number of OS threads
 	if numberOfWorkers <= 0 {
@@ -126,7 +127,7 @@ func createClients(ctx context.Context, numOfClients int, newClientFn func() *ra
 // ----------------------------------------------------------------------------
 
 // create Jobs and put them into the job queue
-func loadJobQueue(ctx context.Context, clientPool chan *rabbitmq.Client, newClientFn func() *rabbitmq.Client, recordchan chan rabbitmq.Record) {
+func loadJobQueue(ctx context.Context, clientPool chan *rabbitmq.Client, newClientFn func() *rabbitmq.Client, recordchan chan queues.Record) {
 	jobCount := 0
 	for record := range util.OrDone(ctx, recordchan) {
 		jobQ <- &RabbitJob{
