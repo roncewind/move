@@ -18,6 +18,10 @@ import (
 var clientPool chan *rabbitmq.Client
 var jobQ chan workerpool.Job
 
+type ManagedProducerError struct {
+	error
+}
+
 // ----------------------------------------------------------------------------
 // Job implementation
 // ----------------------------------------------------------------------------
@@ -25,7 +29,7 @@ var jobQ chan workerpool.Job
 // define a structure that will implement the Job interface
 type RabbitJob struct {
 	id          int
-	newClientFn func() *rabbitmq.Client
+	newClientFn func() (*rabbitmq.Client, error)
 	record      queues.Record
 }
 
@@ -42,8 +46,14 @@ func (j *RabbitJob) Execute(ctx context.Context) (err error) {
 	client := <-clientPool
 	err = client.Push(j.record)
 	if err != nil {
+		err = ManagedProducerError{util.WrapError(err, err.Error())}
 		//put a new client in the pool, dropping the current one
-		clientPool <- j.newClientFn()
+		newClient, newClientErr := j.newClientFn()
+		if newClientErr != nil {
+			err = ManagedProducerError{util.WrapError(newClientErr, newClientErr.Error())}
+		} else {
+			clientPool <- newClient
+		}
 		client.Close()
 		return
 	}
@@ -77,7 +87,7 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 	ctx, cancel := context.WithCancel(ctx)
 
 	clientPool = make(chan *rabbitmq.Client, numberOfWorkers)
-	newClientFn := func() *rabbitmq.Client { return rabbitmq.NewClient(urlString) }
+	newClientFn := func() (*rabbitmq.Client, error) { return rabbitmq.NewClient(urlString) }
 
 	// populate an initial client pool
 	go createClients(ctx, numberOfWorkers, newClientFn)
@@ -117,17 +127,26 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 // ----------------------------------------------------------------------------
 
 // create a number of clients and put them into the client queue
-func createClients(ctx context.Context, numOfClients int, newClientFn func() *rabbitmq.Client) {
+func createClients(ctx context.Context, numOfClients int, newClientFn func() (*rabbitmq.Client, error)) error {
+	countOfClientsCreated := 0
+	var errorStack error = nil
 	for i := 0; i < numOfClients; i++ {
-		clientPool <- newClientFn()
+		client, err := newClientFn()
+		if err != nil {
+			errorStack = ManagedProducerError{util.WrapError(err, err.Error())}
+		} else {
+			countOfClientsCreated++
+			clientPool <- client
+		}
 	}
-	fmt.Println(time.Now(), numOfClients, "rabbitMQ clients created")
+	fmt.Println(time.Now(), countOfClientsCreated, "rabbitMQ clients created,", numOfClients, "requested")
+	return errorStack
 }
 
 // ----------------------------------------------------------------------------
 
 // create Jobs and put them into the job queue
-func loadJobQueue(ctx context.Context, clientPool chan *rabbitmq.Client, newClientFn func() *rabbitmq.Client, recordchan chan queues.Record) {
+func loadJobQueue(ctx context.Context, clientPool chan *rabbitmq.Client, newClientFn func() (*rabbitmq.Client, error), recordchan chan queues.Record) {
 	jobCount := 0
 	for record := range util.OrDone(ctx, recordchan) {
 		jobQ <- &RabbitJob{

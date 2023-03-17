@@ -152,8 +152,8 @@ github.com/rabbitmq/amqp091-go v1.7.0 h1:V5CF5qPem5OGSnEo8BoSbsDGwejg6VUJsKEdnea
 github.com/rabbitmq/amqp091-go v1.7.0/go.mod h1:wfClAtY0C7bOHxd3GjmF26jEHn+rR/0B3+YV+Vn9/NI=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.6.1 h1:/FiVV8dS/e+YqF2JvO3yXRFbBLTIuSDkuC7aBOAvL+k=
-github.com/roncewind/go-util v0.0.5-0.20230317164152-38d746fe0064 h1:votlX1eiVdaMQNCKtg+VUbTx3oSLBqQ7fOhUEVWp0Sw=
-github.com/roncewind/go-util v0.0.5-0.20230317164152-38d746fe0064/go.mod h1:OZtg+ktUcuHKh2yIT1gFYDIPooxGGaRTPRiyunU4LeU=
+github.com/roncewind/go-util v0.0.5-0.20230317170301-6af943422905 h1:EfhzfBziC86InbUqhMdlHb6WKu6kX+3qws+S57jRBws=
+github.com/roncewind/go-util v0.0.5-0.20230317170301-6af943422905/go.mod h1:OZtg+ktUcuHKh2yIT1gFYDIPooxGGaRTPRiyunU4LeU=
 github.com/roncewind/workerpool v0.0.4 h1:k7v3ObH4HArlj9QwU6qgCZeWKYzj08AzNBGq5Col2GU=
 github.com/roncewind/workerpool v0.0.4/go.mod h1:cUHV/wngIowKcK+CXx5O2iqUO/jXt1qhnYGtQJMO0H0=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=

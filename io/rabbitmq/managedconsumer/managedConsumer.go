@@ -19,6 +19,10 @@ import (
 
 var jobPool chan *RabbitJob
 
+type ManagedConsumerError struct {
+	error
+}
+
 // ----------------------------------------------------------------------------
 // Job implementation
 // ----------------------------------------------------------------------------
@@ -111,7 +115,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	newClientFn := func() *rabbitmq.Client { return rabbitmq.NewClient(urlString) }
+	newClientFn := func() (*rabbitmq.Client, error) { return rabbitmq.NewClient(urlString) }
 
 	jobPool = make(chan *RabbitJob, numberOfWorkers)
 	for i := 0; i < numberOfWorkers; i++ {
@@ -157,14 +161,17 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 // ----------------------------------------------------------------------------
 
 // create Jobs and put them into the job queue
-func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ chan workerpool.Job, prefetch int) {
-	client := newClientFn()
+func loadJobQueue(ctx context.Context, newClientFn func() (*rabbitmq.Client, error), jobQ chan workerpool.Job, prefetch int) error {
+	client, err := newClientFn()
+	if err != nil {
+		return ManagedConsumerError{util.WrapError(err, "unable to get a new RabbitMQ client")}
+	}
 	defer client.Close()
 
 	deliveries, err := client.Consume(prefetch)
 	if err != nil {
 		fmt.Println(time.Now(), "Error getting delivery channel:", err)
-		return
+		return ManagedConsumerError{util.WrapError(err, "unable to get a new RabbitMQ delivery channel")}
 	}
 
 	jobCount := 0
@@ -179,6 +186,7 @@ func loadJobQueue(ctx context.Context, newClientFn func() *rabbitmq.Client, jobQ
 		}
 	}
 	fmt.Println(time.Now(), "Total number of jobs:", jobCount)
+	return nil
 }
 
 // ----------------------------------------------------------------------------
