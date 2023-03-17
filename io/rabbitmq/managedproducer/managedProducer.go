@@ -76,7 +76,7 @@ func (j *RabbitJob) OnError(err error) {
 // the given queue.
 // - Workers restart when they are killed or die.
 // - respond to standard system signals.
-func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers int, recordchan chan queues.Record) chan struct{} {
+func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers int, recordchan chan queues.Record) (chan struct{}, error) {
 
 	//default to the max number of OS threads
 	if numberOfWorkers <= 0 {
@@ -97,11 +97,7 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 	jobQ = make(chan workerpool.Job, numberOfWorkers)
 	go loadJobQueue(ctx, clientPool, newClientFn, recordchan)
 
-	// create and start up the workerpool
-	wp, _ := workerpool.NewWorkerPool(numberOfWorkers, jobQ)
-	wp.Start(ctx)
-
-	// clean up after ourselves
+	// create a function to clean up after ourselves
 	cleanup := func() {
 		cancel()
 		fmt.Println(time.Now(), "Cleaup job queue and client pool.")
@@ -116,12 +112,20 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 		}
 	}
 
+	// create and start up the workerpool
+	wp, err := workerpool.NewWorkerPool(numberOfWorkers, jobQ)
+	if err != nil {
+		cleanup()
+		return nil, ManagedProducerError{util.WrapError(err, "unable to create a new worker pool")}
+	}
+	wp.Start(ctx)
+
 	// when shutdown signalled by OS signal, wait for 5 seconds for graceful shutdown
 	//	 to complete, then force
 	sigShutdown := gracefulShutdown(cleanup, 5*time.Second)
 
 	// return blocking channel
-	return sigShutdown
+	return sigShutdown, nil
 }
 
 // ----------------------------------------------------------------------------

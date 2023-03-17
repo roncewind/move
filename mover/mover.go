@@ -27,6 +27,10 @@ import (
 // Types
 // ----------------------------------------------------------------------------
 
+type MoverError struct {
+	error
+}
+
 type MoverImpl struct {
 	FileType  string
 	InputURL  string
@@ -112,7 +116,15 @@ func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
 	printURL(u)
 
 	// set number of workers to runtime.GOMAXPROCS(0)
-	<-util.OrDone(ctx, managedproducer.StartManagedProducer(ctx, m.OutputURL, runtime.GOMAXPROCS(0), recordchan))
+	productionChan, startErr := managedproducer.StartManagedProducer(ctx, m.OutputURL, runtime.GOMAXPROCS(0), recordchan)
+	if startErr != nil {
+		msg := "there was an unexpected issue; please report this as a bug."
+		if _, ok := startErr.(managedproducer.ManagedProducerError); ok {
+			msg = "unable to start the managed producer"
+		}
+		panic(MoverError{util.WrapError(startErr, msg)})
+	}
+	<-util.OrDone(ctx, productionChan)
 	fmt.Println("So long and thanks for all the fish.")
 }
 
