@@ -64,7 +64,7 @@ func loadConfigurationFile(cobraCommand *cobra.Command) {
 	configuration := ""
 	configFlag := cobraCommand.Flags().Lookup(option.Configuration)
 	if configFlag != nil {
-		configuration = cobraCommand.Flags().Lookup(option.Configuration).Value.String()
+		configuration = configFlag.Value.String()
 	}
 	if configuration != "" { // Use configuration file specified as a command line option.
 		viper.SetConfigFile(configuration)
