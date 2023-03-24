@@ -26,15 +26,8 @@ const (
 )
 
 const (
-	// 	delayInSecondsParameter string = "delay-in-seconds"
-	// 	envVarPrefix            string = "SENZING_TOOLS"
 	envVarReplacerCharNew string = "_"
 	envVarReplacerCharOld string = "-"
-
-// inputFileTypeParameter  string = "input-file-type"
-// inputURLParameter       string = "input-url"
-// logLevelParameter       string = "log-level"
-// outputURLParameter      string = "output-url"
 )
 
 // move is 6202:  https://github.com/Senzing/knowledge-base/blob/main/lists/senzing-product-ids.md
@@ -45,17 +38,6 @@ var (
 	buildVersion   string = "0.0.0"
 	programName    string = fmt.Sprintf("move-%d", time.Now().Unix())
 )
-
-// var (
-// 	delay      int = 0
-// 	cfgFile    string
-// 	exchange   string = "senzing"
-// 	fileType   string
-// 	inputQueue string = "senzing_input"
-// 	inputURL   string
-// 	logLevel   string = "error"
-// 	outputURL  string
-// )
 
 // ----------------------------------------------------------------------------
 
@@ -145,11 +127,6 @@ var RootCmd = &cobra.Command{
 		loadConfigurationFile(cobraCommand)
 		loadOptions(cobraCommand)
 		cobraCommand.SetVersionTemplate(constant.VersionTemplate)
-		// viper.BindPFlag(delayInSecondsParameter, cmd.Flags().Lookup(delayInSecondsParameter))
-		// viper.BindPFlag(inputFileTypeParameter, cmd.Flags().Lookup(inputFileTypeParameter))
-		// viper.BindPFlag(inputURLParameter, cmd.Flags().Lookup(inputURLParameter))
-		// viper.BindPFlag(logLevelParameter, cmd.Flags().Lookup(logLevelParameter))
-		// viper.BindPFlag(outputURLParameter, cmd.Flags().Lookup(outputURLParameter))
 	},
 	// The core of this command:
 	Run: func(cmd *cobra.Command, args []string) {
@@ -184,14 +161,7 @@ var RootCmd = &cobra.Command{
 }
 
 // ----------------------------------------------------------------------------
-func failOnError(err error, msg string) {
-	if err != nil {
-		s := fmt.Sprintf("%s: %s", msg, err)
-		panic(s)
-	}
-}
 
-// ----------------------------------------------------------------------------
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the RootCmd.
 func Execute() {
@@ -203,81 +173,12 @@ func Execute() {
 
 // ----------------------------------------------------------------------------
 func init() {
-	// cobra.OnInitialize(initConfig)
-
-	// RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.senzing-tools/config.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	// RootCmd.Flags().IntVarP(&delay, delayInSecondsParameter, "", 0, "time to wait before start of processing")
-	// RootCmd.Flags().StringVarP(&fileType, inputFileTypeParameter, "", "", "file type override")
-	// RootCmd.Flags().StringVarP(&inputURL, inputURLParameter, "i", "", "input location")
-	// RootCmd.Flags().StringVarP(&logLevel, logLevelParameter, "", "", "set the logging level, default Error")
-	// RootCmd.Flags().StringVarP(&outputURL, outputURLParameter, "o", "", "output location")
-
 	RootCmd.Flags().Int(option.DelayInSeconds, defaultDelayInSeconds, option.DelayInSecondsHelp)
 	RootCmd.Flags().String(option.InputFileType, defaultFileType, option.InputFileTypeHelp)
 	RootCmd.Flags().String(option.InputURL, defaultInputURL, option.InputURLHelp)
 	RootCmd.Flags().String(option.LogLevel, defaultLogLevel, fmt.Sprintf(option.LogLevelHelp, envar.LogLevel))
 	RootCmd.Flags().String(option.OutputURL, defaultOutputURL, option.OutputURLHelp)
 }
-
-// ----------------------------------------------------------------------------
-// initConfig reads in config file and ENV variables if set.
-// Config precedence:
-// - cmdline args
-// - env vars
-// - config file
-// func initConfig() {
-// if cfgFile != "" {
-// 	// Use config file from the flag.
-// 	viper.SetConfigFile(cfgFile)
-// } else {
-// 	// Find home directory.
-// 	home, err := os.UserHomeDir()
-// 	cobra.CheckErr(err)
-
-// 	// Search config in <home directory>/.senzing with name "config" (without extension).
-// 	viper.AddConfigPath(home + "/.senzing-tools")
-// 	viper.AddConfigPath(home)
-// 	viper.AddConfigPath("/etc/senzing-tools")
-// 	viper.SetConfigType("yaml")
-// 	viper.SetConfigName("config")
-// }
-
-// if err := viper.ReadInConfig(); err != nil {
-// 	if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-// 		// Config file not found; ignore error
-// 	} else {
-// 		// Config file was found but another error was produced
-// 		logger.LogMessageFromError(MessageIdFormat, 2001, "Config file found, but not loaded", err)
-// 	}
-// }
-// viper.AutomaticEnv() // read in environment variables that match
-// // all env vars should be prefixed with "SENZING_TOOLS_"
-// replacer := strings.NewReplacer(envVarReplacerCharOld, envVarReplacerCharNew)
-// viper.SetEnvKeyReplacer(replacer)
-// viper.SetEnvPrefix(envVarPrefix)
-// viper.BindEnv(delayInSecondsParameter)
-// viper.BindEnv(inputFileTypeParameter)
-// viper.BindEnv(inputURLParameter)
-// viper.BindEnv(logLevelParameter)
-// viper.BindEnv(outputURLParameter)
-
-// viper.SetDefault(delayInSecondsParameter, 0)
-// viper.SetDefault(logLevelParameter, "error")
-
-// // setup local variables, in case they came from a config file
-// //TODO:  why do I have to do this?  env vars and cmdline params get mapped
-// //  automatically, this is only IF the var is in the config file
-// delay = viper.GetInt(delayInSecondsParameter)
-// fileType = viper.GetString(inputFileTypeParameter)
-// inputURL = viper.GetString(inputURLParameter)
-// logLevel = viper.GetString(logLevelParameter)
-// outputURL = viper.GetString(outputURLParameter)
-
-// 	setLogLevel()
-// }
 
 // ----------------------------------------------------------------------------
 func setLogLevel() {
