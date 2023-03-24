@@ -9,6 +9,7 @@ require (
 	github.com/roncewind/workerpool v0.0.4
 	github.com/senzing/g2-sdk-go v0.5.0
 	github.com/senzing/go-common v0.1.2
+	github.com/senzing/senzing-tools v0.1.6-0.20230324173627-5821b863c014
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
 )
@@ -22,7 +23,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.7 // indirect
 	github.com/senzing/go-logging v1.1.3 // indirect
 	github.com/senzing/go-observing v0.2.0 // indirect
-	github.com/senzing/senzing-tools v0.1.6-0.20230324173627-5821b863c014 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
