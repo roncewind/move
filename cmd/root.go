@@ -61,7 +61,11 @@ var (
 
 // If a configuration file is present, load it.
 func loadConfigurationFile(cobraCommand *cobra.Command) {
-	configuration := cobraCommand.Flags().Lookup(option.Configuration).Value.String()
+	configuration := ""
+	configFlag := cobraCommand.Flags().Lookup(option.Configuration)
+	if configFlag != nil {
+		configuration = cobraCommand.Flags().Lookup(option.Configuration).Value.String()
+	}
 	if configuration != "" { // Use configuration file specified as a command line option.
 		viper.SetConfigFile(configuration)
 	} else { // Search for a configuration file.
