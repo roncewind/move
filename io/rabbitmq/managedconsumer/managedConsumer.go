@@ -15,6 +15,7 @@ import (
 	"github.com/roncewind/workerpool"
 	"github.com/senzing/g2-sdk-go/g2api"
 	"github.com/senzing/go-common/record"
+	"github.com/sourcegraph/conc/pool"
 )
 
 var jobPool chan *RabbitJob
@@ -34,6 +35,86 @@ type RabbitJob struct {
 	id        int
 	usedCount int
 	withInfo  bool
+}
+
+// ----------------------------------------------------------------------------
+
+// Starts a number of workers that read Records from the given queue and add
+// them to Senzing.
+// - Workers restart when they are killed or die.
+// - respond to standard system signals.
+func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers int, g2engine *g2api.G2engine, withInfo bool) error {
+
+	//default to the max number of OS threads
+	if numberOfWorkers <= 0 {
+		numberOfWorkers = runtime.GOMAXPROCS(0)
+	}
+	fmt.Println(time.Now(), "Number of consumer workers:", numberOfWorkers)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	newClientFn := func() (*rabbitmq.Client, error) { return rabbitmq.NewClient(urlString) }
+
+	jobPool = make(chan *RabbitJob, numberOfWorkers)
+	for i := 0; i < numberOfWorkers; i++ {
+		jobPool <- &RabbitJob{
+			engine:    g2engine,
+			id:        i,
+			usedCount: 0,
+			withInfo:  withInfo,
+		}
+	}
+
+	client, err := newClientFn()
+	if err != nil {
+		return err
+		// return ManagedConsumerError{util.WrapError(err, "unable to get a new RabbitMQ client")}
+	}
+	defer client.Close()
+
+	deliveries, err := client.Consume(numberOfWorkers)
+	if err != nil {
+		fmt.Println(time.Now(), "Error getting delivery channel:", err)
+		return err
+		// return ManagedConsumerError{util.WrapError(err, "unable to get a new RabbitMQ delivery channel")}
+	}
+	p := pool.New().WithMaxGoroutines(numberOfWorkers)
+
+	jobCount := 0
+	// make a buffered channel with the space for all workers
+	//  workers will signal on this channel if they die
+	jobQ := make(chan workerpool.Job, numberOfWorkers)
+	go loadJobQueue(ctx, newClientFn, jobQ, numberOfWorkers)
+	for delivery := range deliveries {
+		job := <-jobPool
+		job.delivery = delivery
+		p.Go(func() {
+			job.Execute(ctx)
+			if err != nil {
+				job.OnError(err)
+			}
+		})
+
+		jobCount++
+		if jobCount%10000 == 0 {
+			fmt.Println(time.Now(), "Jobs added to job queue:", jobCount)
+		}
+	}
+
+	// Wait for all the records in the record channel to be processed
+	p.Wait()
+
+	// create a function to clean up after ourselves
+	close(jobPool)
+	// drain the job pool
+	var job *RabbitJob
+	ok := true
+	for ok {
+		job, ok = <-jobPool
+		fmt.Println("Job:", job.id, "used:", job.usedCount)
+	}
+
+	return nil
 }
 
 // ----------------------------------------------------------------------------
@@ -92,6 +173,9 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 func (j *RabbitJob) OnError(err error) {
 	// TODO: look at the error codes and only requeue when they are retryable
 	// for now, just requeue if they haven't been requeued before
+	// TODO:  on error should the record get put back into the record channel?
+	fmt.Println("Worker error:", err)
+	fmt.Println("Failed to move record:", j.id)
 	if j.delivery.Redelivered {
 		j.delivery.Nack(false, false)
 	} else {
@@ -105,7 +189,7 @@ func (j *RabbitJob) OnError(err error) {
 // them to Senzing.
 // - Workers restart when they are killed or die.
 // - respond to standard system signals.
-func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers int, g2engine *g2api.G2engine, withInfo bool) (chan struct{}, error) {
+func StartManagedConsumerxxx(ctx context.Context, urlString string, numberOfWorkers int, g2engine *g2api.G2engine, withInfo bool) (chan struct{}, error) {
 
 	//default to the max number of OS threads
 	if numberOfWorkers <= 0 {
@@ -114,7 +198,6 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	fmt.Println(time.Now(), "Number of consumer workers:", numberOfWorkers)
 
 	ctx, cancel := context.WithCancel(ctx)
-
 	newClientFn := func() (*rabbitmq.Client, error) { return rabbitmq.NewClient(urlString) }
 
 	jobPool = make(chan *RabbitJob, numberOfWorkers)
