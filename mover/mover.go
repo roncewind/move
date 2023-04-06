@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/roncewind/go-util/queues"
-	"github.com/roncewind/go-util/util"
 	"github.com/roncewind/move/io/rabbitmq/managedproducer"
 	"github.com/senzing/go-common/record"
 )
@@ -76,15 +75,16 @@ func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
 	printURL(u)
 
 	// set number of workers to runtime.GOMAXPROCS(0)
-	productionChan, startErr := managedproducer.StartManagedProducer(ctx, m.OutputURL, runtime.GOMAXPROCS(0), recordchan)
-	if startErr != nil {
-		msg := "there was an unexpected issue; please report this as a bug."
-		if _, ok := startErr.(managedproducer.ManagedProducerError); ok {
-			msg = "unable to start the managed producer"
-		}
-		panic(MoverError{util.WrapError(startErr, msg)})
-	}
-	<-util.OrDone(ctx, productionChan)
+	// productionChan, startErr := managedproducer.StartManagedProducer(ctx, m.OutputURL, runtime.GOMAXPROCS(0), recordchan)
+	// if startErr != nil {
+	// 	msg := "there was an unexpected issue; please report this as a bug."
+	// 	if _, ok := startErr.(managedproducer.ManagedProducerError); ok {
+	// 		msg = "unable to start the managed producer"
+	// 	}
+	// 	panic(MoverError{util.WrapError(startErr, msg)})
+	// }
+	// <-util.OrDone(ctx, productionChan)
+	managedproducer.StartManagedProducer(ctx, m.OutputURL, runtime.GOMAXPROCS(0), recordchan)
 	fmt.Println("So long and thanks for all the fish.")
 }
 

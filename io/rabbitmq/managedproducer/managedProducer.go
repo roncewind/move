@@ -13,6 +13,7 @@ import (
 	"github.com/roncewind/go-util/queues/rabbitmq"
 	"github.com/roncewind/go-util/util"
 	"github.com/roncewind/workerpool"
+	"github.com/sourcegraph/conc/pool"
 )
 
 var clientPool chan *rabbitmq.Client
@@ -72,11 +73,82 @@ func (j *RabbitJob) OnError(err error) {
 
 // ----------------------------------------------------------------------------
 
+// Job interface implementation:
+// Execute() is run once for each Job
+func execute(ctx context.Context, record queues.Record, newClientFn func() (*rabbitmq.Client, error)) (err error) {
+	client := <-clientPool
+	err = client.Push(record)
+	if err != nil {
+		err = ManagedProducerError{util.WrapError(err, err.Error())}
+		//put a new client in the pool, dropping the current one
+		newClient, newClientErr := newClientFn()
+		if newClientErr != nil {
+			err = ManagedProducerError{util.WrapError(newClientErr, newClientErr.Error())}
+		} else {
+			clientPool <- newClient
+		}
+		client.Close()
+		return
+	}
+	// return the client to the pool when done
+	clientPool <- client
+	return
+}
+
+// ----------------------------------------------------------------------------
+
 // Starts a number of workers that push Records in the record channel to
 // the given queue.
 // - Workers restart when they are killed or die.
 // - respond to standard system signals.
-func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers int, recordchan chan queues.Record) (chan struct{}, error) {
+func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers int, recordchan chan queues.Record) {
+
+	//default to the max number of OS threads
+	if numberOfWorkers <= 0 {
+		numberOfWorkers = runtime.GOMAXPROCS(0)
+	}
+	fmt.Println(time.Now(), "Number of producer workers:", numberOfWorkers)
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	clientPool = make(chan *rabbitmq.Client, numberOfWorkers)
+	newClientFn := func() (*rabbitmq.Client, error) { return rabbitmq.NewClient(urlString) }
+
+	// populate an initial client pool
+	go createClients(ctx, numberOfWorkers, newClientFn)
+
+	p := pool.New().WithMaxGoroutines(numberOfWorkers)
+	for record := range recordchan {
+		record := record
+		p.Go(func() {
+			err := execute(ctx, record, newClientFn)
+			if err != nil {
+				fmt.Println("Worker error:", err)
+			}
+		})
+	}
+	p.Wait()
+
+	cancel()
+	fmt.Println(time.Now(), "Cleaup job queue and client pool.")
+	close(clientPool)
+	// drain the client pool, closing rabbit mq connections
+	for len(clientPool) > 0 {
+		client, ok := <-clientPool
+		if ok && client != nil {
+			client.Close()
+		}
+	}
+
+}
+
+// ----------------------------------------------------------------------------
+
+// Starts a number of workers that push Records in the record channel to
+// the given queue.
+// - Workers restart when they are killed or die.
+// - respond to standard system signals.
+func StartManagedProducerxxx(ctx context.Context, urlString string, numberOfWorkers int, recordchan chan queues.Record) (chan struct{}, error) {
 
 	//default to the max number of OS threads
 	if numberOfWorkers <= 0 {
