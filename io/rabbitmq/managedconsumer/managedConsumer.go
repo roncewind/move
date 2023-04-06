@@ -3,16 +3,12 @@ package managedconsumer
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
 	"runtime"
-	"syscall"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/roncewind/go-util/queues/rabbitmq"
 	"github.com/roncewind/go-util/util"
-	"github.com/roncewind/workerpool"
 	"github.com/senzing/g2-sdk-go/g2api"
 	"github.com/senzing/go-common/record"
 	"github.com/sourcegraph/conc/pool"
@@ -36,87 +32,6 @@ type RabbitJob struct {
 	usedCount int
 	withInfo  bool
 }
-
-// ----------------------------------------------------------------------------
-
-// Starts a number of workers that read Records from the given queue and add
-// them to Senzing.
-// - Workers restart when they are killed or die.
-// - respond to standard system signals.
-func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers int, g2engine *g2api.G2engine, withInfo bool) error {
-
-	//default to the max number of OS threads
-	if numberOfWorkers <= 0 {
-		numberOfWorkers = runtime.GOMAXPROCS(0)
-	}
-	fmt.Println(time.Now(), "Number of consumer workers:", numberOfWorkers)
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// setup jobs that will be used to process RabbitMQ deliveries
-	jobPool = make(chan *RabbitJob, numberOfWorkers)
-	for i := 0; i < numberOfWorkers; i++ {
-		jobPool <- &RabbitJob{
-			engine:    g2engine,
-			id:        i,
-			usedCount: 0,
-			withInfo:  withInfo,
-		}
-	}
-
-	client, err := rabbitmq.NewClient(urlString)
-	if err != nil {
-		return err
-		// return ManagedConsumerError{util.WrapError(err, "unable to get a new RabbitMQ client")}
-	}
-	defer client.Close()
-
-	deliveries, err := client.Consume(numberOfWorkers)
-	if err != nil {
-		fmt.Println(time.Now(), "Error getting delivery channel:", err)
-		return err
-		// return ManagedConsumerError{util.WrapError(err, "unable to get a new RabbitMQ delivery channel")}
-	}
-
-	p := pool.New().WithMaxGoroutines(numberOfWorkers)
-	jobCount := 0
-	for delivery := range deliveries {
-		job := <-jobPool
-		job.delivery = delivery
-		p.Go(func() {
-			job.Execute(ctx)
-			if err != nil {
-				job.OnError(err)
-			}
-		})
-
-		jobCount++
-		if jobCount%10000 == 0 {
-			fmt.Println(time.Now(), "Jobs added to job queue:", jobCount)
-		}
-	}
-
-	// Wait for all the records in the record channel to be processed
-	p.Wait()
-
-	// create a function to clean up after ourselves
-	close(jobPool)
-	// drain the job pool
-	var job *RabbitJob
-	ok := true
-	for ok {
-		job, ok = <-jobPool
-		fmt.Println("Job:", job.id, "used:", job.usedCount)
-	}
-
-	return nil
-}
-
-// ----------------------------------------------------------------------------
-
-// make sure RabbitJob implements the Job interface
-var _ workerpool.Job = (*RabbitJob)(nil)
 
 // ----------------------------------------------------------------------------
 
@@ -180,12 +95,14 @@ func (j *RabbitJob) OnError(err error) {
 }
 
 // ----------------------------------------------------------------------------
+// -- add records in RabbitMQ to Senzing
+// ----------------------------------------------------------------------------
 
 // Starts a number of workers that read Records from the given queue and add
 // them to Senzing.
 // - Workers restart when they are killed or die.
 // - respond to standard system signals.
-func StartManagedConsumerxxx(ctx context.Context, urlString string, numberOfWorkers int, g2engine *g2api.G2engine, withInfo bool) (chan struct{}, error) {
+func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers int, g2engine *g2api.G2engine, withInfo bool) error {
 
 	//default to the max number of OS threads
 	if numberOfWorkers <= 0 {
@@ -194,8 +111,9 @@ func StartManagedConsumerxxx(ctx context.Context, urlString string, numberOfWork
 	fmt.Println(time.Now(), "Number of consumer workers:", numberOfWorkers)
 
 	ctx, cancel := context.WithCancel(ctx)
-	newClientFn := func() (*rabbitmq.Client, error) { return rabbitmq.NewClient(urlString) }
+	defer cancel()
 
+	// setup jobs that will be used to process RabbitMQ deliveries
 	jobPool = make(chan *RabbitJob, numberOfWorkers)
 	for i := 0; i < numberOfWorkers; i++ {
 		jobPool <- &RabbitJob{
@@ -206,118 +124,48 @@ func StartManagedConsumerxxx(ctx context.Context, urlString string, numberOfWork
 		}
 	}
 
-	// make a buffered channel with the space for all workers
-	//  workers will signal on this channel if they die
-	jobQ := make(chan workerpool.Job, numberOfWorkers)
-	go loadJobQueue(ctx, newClientFn, jobQ, numberOfWorkers)
-
-	// create a function to clean up after ourselves
-	cleanup := func() {
-		cancel()
-		close(jobPool)
-		close(jobQ)
-		// drain the job pool
-		var job *RabbitJob
-		ok := true
-		for ok {
-			job, ok = <-jobPool
-			fmt.Println("Job:", job.id, "used:", job.usedCount)
-		}
-	}
-
-	// create and start up the workerpool
-	wp, err := workerpool.NewWorkerPool(numberOfWorkers, jobQ)
-	if err != nil {
-		cleanup()
-		return nil, ManagedConsumerError{util.WrapError(err, "unable to create a new worker pool")}
-	}
-	wp.Start(ctx)
-
-	// when shutdown signalled by OS signal, wait for 5 seconds for graceful shutdown
-	//	 to complete, then force
-	sigShutdown := gracefulShutdown(cleanup, 5*time.Second)
-
-	// return blocking channel
-	return sigShutdown, nil
-}
-
-// ----------------------------------------------------------------------------
-
-// create Jobs and put them into the job queue
-func loadJobQueue(ctx context.Context, newClientFn func() (*rabbitmq.Client, error), jobQ chan workerpool.Job, prefetch int) error {
-	client, err := newClientFn()
+	client, err := rabbitmq.NewClient(urlString)
 	if err != nil {
 		return ManagedConsumerError{util.WrapError(err, "unable to get a new RabbitMQ client")}
 	}
 	defer client.Close()
 
-	deliveries, err := client.Consume(prefetch)
+	deliveries, err := client.Consume(numberOfWorkers)
 	if err != nil {
 		fmt.Println(time.Now(), "Error getting delivery channel:", err)
 		return ManagedConsumerError{util.WrapError(err, "unable to get a new RabbitMQ delivery channel")}
 	}
 
+	p := pool.New().WithMaxGoroutines(numberOfWorkers)
 	jobCount := 0
-	//PONDER: what if something fails here?  how can we recover?
-	for delivery := range util.OrDone(ctx, deliveries) {
+	for delivery := range deliveries {
 		job := <-jobPool
 		job.delivery = delivery
-		jobQ <- job
+		p.Go(func() {
+			job.Execute(ctx)
+			if err != nil {
+				job.OnError(err)
+			}
+		})
+
 		jobCount++
 		if jobCount%10000 == 0 {
 			fmt.Println(time.Now(), "Jobs added to job queue:", jobCount)
 		}
 	}
-	fmt.Println(time.Now(), "Total number of jobs:", jobCount)
+
+	// Wait for all the records in the record channel to be processed
+	p.Wait()
+
+	// clean up after ourselves
+	close(jobPool)
+	// drain the job pool
+	var job *RabbitJob
+	ok := true
+	for ok {
+		job, ok = <-jobPool
+		fmt.Println("Job:", job.id, "used:", job.usedCount)
+	}
+
 	return nil
-}
-
-// ----------------------------------------------------------------------------
-
-// gracefulShutdown waits for terminating syscalls then signals workers to shutdown
-func gracefulShutdown(cleanup func(), timeout time.Duration) chan struct{} {
-	wait := make(chan struct{})
-
-	go func() {
-		defer close(wait)
-		sig := make(chan os.Signal, 1)
-		defer close(sig)
-
-		// PONDER: add any other syscalls?
-		// SIGHUP - hang up, lost controlling terminal
-		// SIGINT - interrupt (ctrl-c)
-		// SIGQUIT - quit (ctrl-\)
-		// SIGTERM - request to terminate
-		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
-		killsig := <-sig
-		switch killsig {
-		case syscall.SIGINT:
-			fmt.Println("Killed with ctrl-c")
-		case syscall.SIGTERM:
-			fmt.Println("Killed with request to terminate")
-		case syscall.SIGQUIT:
-			fmt.Println("Killed with ctrl-\\")
-		case syscall.SIGHUP:
-			fmt.Println("Killed with hang up")
-		}
-
-		// set timeout for the cleanup to be done to prevent system hang
-		timeoutSignal := make(chan struct{})
-		timeoutFunc := time.AfterFunc(timeout, func() {
-			fmt.Printf("Timeout %.1fs have elapsed, force exit\n", timeout.Seconds())
-			close(timeoutSignal)
-		})
-
-		defer timeoutFunc.Stop()
-
-		// clean-up time
-		fmt.Println("Shutdown signalled, time to clean-up")
-		cleanup()
-
-		// wait for timeout to finish
-		<-timeoutSignal
-		wait <- struct{}{}
-	}()
-
-	return wait
 }
