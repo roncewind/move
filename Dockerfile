@@ -2,7 +2,7 @@
 # Stages
 # -----------------------------------------------------------------------------
 
-ARG IMAGE_GO_BUILDER=golang:1.20.1
+ARG IMAGE_GO_BUILDER=golang:1.20.2
 ARG IMAGE_FINAL=senzing/senzingapi-runtime:latest
 
 # -----------------------------------------------------------------------------
