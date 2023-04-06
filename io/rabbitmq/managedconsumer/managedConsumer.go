@@ -53,8 +53,8 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	newClientFn := func() (*rabbitmq.Client, error) { return rabbitmq.NewClient(urlString) }
 
+	// setup jobs that will be used to process RabbitMQ deliveries
 	jobPool = make(chan *RabbitJob, numberOfWorkers)
 	for i := 0; i < numberOfWorkers; i++ {
 		jobPool <- &RabbitJob{
@@ -65,7 +65,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 		}
 	}
 
-	client, err := newClientFn()
+	client, err := rabbitmq.NewClient(urlString)
 	if err != nil {
 		return err
 		// return ManagedConsumerError{util.WrapError(err, "unable to get a new RabbitMQ client")}
@@ -78,13 +78,9 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 		return err
 		// return ManagedConsumerError{util.WrapError(err, "unable to get a new RabbitMQ delivery channel")}
 	}
-	p := pool.New().WithMaxGoroutines(numberOfWorkers)
 
+	p := pool.New().WithMaxGoroutines(numberOfWorkers)
 	jobCount := 0
-	// make a buffered channel with the space for all workers
-	//  workers will signal on this channel if they die
-	jobQ := make(chan workerpool.Job, numberOfWorkers)
-	go loadJobQueue(ctx, newClientFn, jobQ, numberOfWorkers)
 	for delivery := range deliveries {
 		job := <-jobPool
 		job.delivery = delivery
