@@ -39,6 +39,76 @@ var (
 	programName    string = fmt.Sprintf("move-%d", time.Now().Unix())
 )
 
+// RootCmd represents the base command when called without any subcommands
+var RootCmd = &cobra.Command{
+	Use:   "move",
+	Short: "Move records from one location to another.",
+	Long: `
+	Welcome to move!
+	This tool will move records from one place to another. It validates the records conform to the Generic Entity Specification.
+
+	For example:
+
+	move --input-url "file:///path/to/json/lines/file.jsonl" --output-url "amqp://guest:guest@192.168.6.96:5672"
+	move --input-url "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl" --output-url "amqp://guest:guest@192.168.6.96:5672"
+`,
+	PreRun: func(cobraCommand *cobra.Command, args []string) {
+		loadConfigurationFile(cobraCommand)
+		loadOptions(cobraCommand)
+		cobraCommand.SetVersionTemplate(constant.VersionTemplate)
+	},
+	// The core of this command:
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("start Run")
+		fmt.Println("viper key list:")
+		for _, key := range viper.AllKeys() {
+			fmt.Println("  - ", key, " = ", viper.Get(key))
+		}
+		setLogLevel()
+		fmt.Println(time.Now(), "Sleep for", viper.GetInt(option.DelayInSeconds), "seconds to let RabbitMQ and Postgres settle down and come up.")
+		time.Sleep(time.Duration(viper.GetInt(option.DelayInSeconds)) * time.Second)
+
+		if viper.IsSet(option.InputURL) &&
+			viper.IsSet(option.OutputURL) {
+
+			ctx := context.Background()
+
+			mover := &mover.MoverImpl{
+				FileType:  viper.GetString(option.InputFileType),
+				InputURL:  viper.GetString(option.InputURL),
+				LogLevel:  viper.GetString(option.LogLevel),
+				OutputURL: viper.GetString(option.OutputURL),
+			}
+			mover.Move(ctx)
+
+		} else {
+			cmd.Help()
+			fmt.Println("Build Version:", buildVersion)
+			fmt.Println("Build Iteration:", buildIteration)
+		}
+	},
+}
+
+// ----------------------------------------------------------------------------
+
+// Execute adds all child commands to the root command and sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the RootCmd.
+func Execute() {
+	err := RootCmd.Execute()
+	if err != nil {
+		os.Exit(1)
+	}
+}
+
+// ----------------------------------------------------------------------------
+func init() {
+	RootCmd.Flags().Int(option.DelayInSeconds, defaultDelayInSeconds, option.DelayInSecondsHelp)
+	RootCmd.Flags().String(option.InputFileType, defaultFileType, option.InputFileTypeHelp)
+	RootCmd.Flags().String(option.InputURL, defaultInputURL, option.InputURLHelp)
+	RootCmd.Flags().String(option.LogLevel, defaultLogLevel, fmt.Sprintf(option.LogLevelHelp, envar.LogLevel))
+	RootCmd.Flags().String(option.OutputURL, defaultOutputURL, option.OutputURLHelp)
+}
+
 // ----------------------------------------------------------------------------
 
 // If a configuration file is present, load it.
@@ -108,76 +178,6 @@ func loadOptions(cobraCommand *cobra.Command) {
 		viper.BindPFlag(optionKey, cobraCommand.Flags().Lookup(optionKey))
 	}
 
-}
-
-// RootCmd represents the base command when called without any subcommands
-var RootCmd = &cobra.Command{
-	Use:   "move",
-	Short: "Move records from one location to another.",
-	Long: `
-	Welcome to move!
-	This tool will move records from one place to another. It validates the records conform to the Generic Entity Specification.
-
-	For example:
-
-	move --input-url "file:///path/to/json/lines/file.jsonl" --output-url "amqp://guest:guest@192.168.6.96:5672"
-	move --input-url "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl" --output-url "amqp://guest:guest@192.168.6.96:5672"
-`,
-	PreRun: func(cobraCommand *cobra.Command, args []string) {
-		loadConfigurationFile(cobraCommand)
-		loadOptions(cobraCommand)
-		cobraCommand.SetVersionTemplate(constant.VersionTemplate)
-	},
-	// The core of this command:
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("start Run")
-		fmt.Println("viper key list:")
-		for _, key := range viper.AllKeys() {
-			fmt.Println("  - ", key, " = ", viper.Get(key))
-		}
-		setLogLevel()
-		fmt.Println(time.Now(), "Sleep for", viper.GetInt(option.DelayInSeconds), "seconds to let RabbitMQ and Postgres settle down and come up.")
-		time.Sleep(time.Duration(viper.GetInt(option.DelayInSeconds)) * time.Second)
-
-		if viper.IsSet(option.InputURL) &&
-			viper.IsSet(option.OutputURL) {
-
-			ctx := context.Background()
-
-			mover := &mover.MoverImpl{
-				FileType:  viper.GetString(option.InputFileType),
-				InputURL:  viper.GetString(option.InputURL),
-				LogLevel:  viper.GetString(option.LogLevel),
-				OutputURL: viper.GetString(option.OutputURL),
-			}
-			mover.Move(ctx)
-
-		} else {
-			cmd.Help()
-			fmt.Println("Build Version:", buildVersion)
-			fmt.Println("Build Iteration:", buildIteration)
-		}
-	},
-}
-
-// ----------------------------------------------------------------------------
-
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the RootCmd.
-func Execute() {
-	err := RootCmd.Execute()
-	if err != nil {
-		os.Exit(1)
-	}
-}
-
-// ----------------------------------------------------------------------------
-func init() {
-	RootCmd.Flags().Int(option.DelayInSeconds, defaultDelayInSeconds, option.DelayInSecondsHelp)
-	RootCmd.Flags().String(option.InputFileType, defaultFileType, option.InputFileTypeHelp)
-	RootCmd.Flags().String(option.InputURL, defaultInputURL, option.InputURLHelp)
-	RootCmd.Flags().String(option.LogLevel, defaultLogLevel, fmt.Sprintf(option.LogLevelHelp, envar.LogLevel))
-	RootCmd.Flags().String(option.OutputURL, defaultOutputURL, option.OutputURLHelp)
 }
 
 // ----------------------------------------------------------------------------

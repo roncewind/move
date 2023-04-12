@@ -88,15 +88,24 @@ func (m *MoverImpl) read(ctx context.Context, recordchan chan queues.Record) {
 
 	defer waitGroup.Done()
 
-	//This assumes the URL includes a schema and path so, minimally:
-	//  "s://p" where the schema is 's' and 'p' is the complete path
-	if len(m.InputURL) < 5 {
-		fmt.Printf("ERROR: check the inputURL parameter: %s\n", m.InputURL)
+	inputURL := m.InputURL
+	inputURLLen := len(inputURL)
+
+	if inputURLLen == 0 {
+		//assume stdin
+		readStdin(recordchan)
 		return
 	}
 
-	fmt.Println("inputURL: ", m.InputURL)
-	u, err := url.Parse(m.InputURL)
+	//This assumes the URL includes a schema and path so, minimally:
+	//  "s://p" where the schema is 's' and 'p' is the complete path
+	if len(inputURL) < 5 {
+		fmt.Printf("ERROR: check the inputURL parameter: %s\n", inputURL)
+		return
+	}
+
+	fmt.Println("inputURL: ", inputURL)
+	u, err := url.Parse(inputURL)
 	if err != nil {
 		panic(err)
 	}
@@ -117,7 +126,10 @@ func (m *MoverImpl) read(ctx context.Context, recordchan chan queues.Record) {
 	} else if u.Scheme == "http" || u.Scheme == "https" {
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(m.FileType) == "JSONL" {
 			fmt.Println("Reading as a JSONL resource.")
-			readJSONLResource(u.Path, recordchan)
+			readJSONLResource(inputURL, recordchan)
+		} else if strings.HasSuffix(u.Path, "gz") || strings.ToUpper(m.FileType) == "GZ" {
+			fmt.Println("Reading as a GZ resource.")
+			readGZResource(inputURL, recordchan)
 		} else {
 			fmt.Println("If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
 		}
@@ -146,7 +158,7 @@ func processJSONL(fileName string, reader io.Reader, recordchan chan queues.Reco
 		if len(str) > 0 {
 			valid, err := record.Validate(str)
 			if valid {
-				recordchan <- &szRecord{str, fileName, i}
+				recordchan <- &szRecord{str, i, fileName}
 			} else {
 				fmt.Println("Line", i, err)
 			}
@@ -162,47 +174,89 @@ func processJSONL(fileName string, reader io.Reader, recordchan chan queues.Reco
 
 // ----------------------------------------------------------------------------
 
+func readStdin(recordchan chan queues.Record) bool {
+	info, err := os.Stdin.Stat()
+	if err != nil {
+		fmt.Println("Fatal error opening stdin.", err)
+		return false
+	}
+	//printFileInfo(info)
+
+	if info.Mode()&os.ModeNamedPipe == os.ModeNamedPipe {
+
+		reader := bufio.NewReader(os.Stdin)
+		processJSONL("stdin", reader, recordchan)
+		return true
+	}
+	fmt.Println("Fatal error stdin not piped.")
+	return false
+}
+
+// ----------------------------------------------------------------------------
+
 // opens and reads a JSONL http resource
-func readJSONLResource(jsonURL string, recordchan chan queues.Record) {
+func readJSONLResource(jsonURL string, recordchan chan queues.Record) error {
 	response, err := http.Get(jsonURL)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer response.Body.Close()
 
 	processJSONL(jsonURL, response.Body, recordchan)
+	return nil
 }
 
 // ----------------------------------------------------------------------------
 
 // opens and reads a JSONL file
-func readJSONLFile(jsonFile string, recordchan chan queues.Record) {
+func readJSONLFile(jsonFile string, recordchan chan queues.Record) error {
 	file, err := os.Open(jsonFile)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
 
 	processJSONL(jsonFile, file, recordchan)
+	return nil
 }
 
 // ----------------------------------------------------------------------------
 
 // opens and reads a JSONL file that has been Gzipped
-func readGZFile(gzFile string, recordchan chan queues.Record) {
+func readGZFile(gzFile string, recordchan chan queues.Record) error {
 	gzipfile, err := os.Open(gzFile)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer gzipfile.Close()
 
 	reader, err := gzip.NewReader(gzipfile)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer reader.Close()
 
 	processJSONL(gzFile, reader, recordchan)
+	return nil
+}
+
+// ----------------------------------------------------------------------------
+func readGZResource(gzURL string, recordchan chan queues.Record) error {
+	response, err := http.Get(gzURL)
+	if err != nil {
+		fmt.Println("Fatal error retrieving inputURL.", err)
+		return err
+	}
+	defer response.Body.Close()
+	reader, err := gzip.NewReader(response.Body)
+	if err != nil {
+		fmt.Println("Fatal error reading inputURL.", err)
+		return err
+	}
+	defer reader.Close()
+
+	processJSONL(gzURL, reader, recordchan)
+	return nil
 }
 
 // ----------------------------------------------------------------------------
@@ -311,17 +365,20 @@ func printURL(u *url.URL) {
 // record implementation: provides a raw data record implementation
 // ----------------------------------------------------------------------------
 
+// Check at compile time that the implementation adheres to the interface.
+var _ queues.Record = (*szRecord)(nil)
+
 type szRecord struct {
-	line       string
-	fileName   string
-	lineNumber int
+	body   string
+	id     int
+	source string
 }
 
 func (r *szRecord) GetMessage() string {
-	return r.line
+	return r.body
 }
 
 func (r *szRecord) GetMessageId() string {
 	//TODO: meaningful or random MessageId?
-	return fmt.Sprintf("%s-%d", r.fileName, r.lineNumber)
+	return fmt.Sprintf("%s-%d", r.source, r.id)
 }
