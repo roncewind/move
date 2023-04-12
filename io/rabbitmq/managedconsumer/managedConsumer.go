@@ -51,7 +51,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 			var flags int64 = 0
 			_, withInfoErr := (*j.engine).AddRecordWithInfo(ctx, record.DataSource, record.Id, record.Json, loadID, flags)
 			if withInfoErr != nil {
-				fmt.Println(time.Now(), "Error adding record:", j.delivery.MessageId, "error:", withInfoErr)
+				// fmt.Println(time.Now(), "Error adding record:", j.delivery.MessageId, "error:", withInfoErr)
 				fmt.Printf("Record in error: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 				return withInfoErr
 			}
@@ -61,7 +61,7 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 		} else {
 			addRecordErr := (*j.engine).AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
 			if addRecordErr != nil {
-				fmt.Println(time.Now(), "Error adding record:", j.delivery.MessageId, "error:", addRecordErr)
+				// fmt.Println(time.Now(), "Error adding record:", j.delivery.MessageId, "error:", addRecordErr)
 				fmt.Printf("Record in error: %s:%s:%s:%s\n", j.delivery.MessageId, loadID, record.DataSource, record.Id)
 				return addRecordErr
 			}
