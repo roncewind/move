@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/docktermj/go-xyzzy-helpers v0.2.2
 	github.com/rabbitmq/amqp091-go v1.7.0
-	github.com/roncewind/go-util v0.0.5-0.20230317170301-6af943422905
+	github.com/roncewind/go-util v0.0.5-0.20230412213642-f7973600d217
 	github.com/senzing/g2-sdk-go v0.5.0
 	github.com/senzing/go-common v0.1.2
 	github.com/senzing/senzing-tools v0.1.6-0.20230324173627-5821b863c014
