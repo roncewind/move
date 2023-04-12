@@ -65,17 +65,59 @@ func (m *MoverImpl) Move(ctx context.Context) {
 
 // this function implements writing to RabbitMQ
 func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
-	fmt.Println("Enter write")
+
 	defer waitGroup.Done()
-	fmt.Println("Write URL string: ", m.OutputURL)
-	u, err := url.Parse(m.OutputURL)
+
+	outputURL := m.OutputURL
+	outputURLLen := len(outputURL)
+
+	if outputURLLen == 0 {
+		//assume stdout
+		writeStdout(recordchan)
+		return
+	}
+
+	//This assumes the URL includes a schema and path so, minimally:
+	//  "s://p" where the schema is 's' and 'p' is the complete path
+	if len(outputURL) < 5 {
+		fmt.Printf("ERROR: check the inputURL parameter: %s\n", outputURL)
+		return
+	}
+
+	fmt.Println("outputURL: ", outputURL)
+	u, err := url.Parse(outputURL)
 	if err != nil {
 		panic(err)
 	}
 	printURL(u)
-
-	managedproducer.StartManagedProducer(ctx, m.OutputURL, runtime.GOMAXPROCS(0), recordchan)
+	switch u.Scheme {
+	case "amqp":
+		managedproducer.StartManagedProducer(ctx, outputURL, runtime.GOMAXPROCS(0), recordchan)
+	case "file":
+		fmt.Println("Move to file not implemented.")
+	case "sqs":
+		fmt.Println("Move to SQS not implemented.")
+	default:
+		fmt.Println("Unknown URL Scheme.  Unable to write to:", outputURL)
+	}
 	fmt.Println("So long and thanks for all the fish.")
+}
+
+// ----------------------------------------------------------------------------
+
+func writeStdout(recordchan chan queues.Record) bool {
+	_, err := os.Stdout.Stat()
+	if err != nil {
+		fmt.Println("Fatal error opening stdout.", err)
+		return false
+	}
+	// printFileInfo(info)
+
+	writer := bufio.NewWriter(os.Stdout)
+	for record := range recordchan {
+		writer.WriteString(record.GetMessage())
+	}
+	return false
 }
 
 // ----------------------------------------------------------------------------
