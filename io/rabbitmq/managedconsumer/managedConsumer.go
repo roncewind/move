@@ -142,7 +142,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 		job := <-jobPool
 		job.delivery = delivery
 		p.Go(func() {
-			job.Execute(ctx)
+			err := job.Execute(ctx)
 			if err != nil {
 				job.OnError(err)
 			}
