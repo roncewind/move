@@ -94,17 +94,21 @@ func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
 	case "amqp":
 		managedproducer.StartManagedProducer(ctx, outputURL, runtime.GOMAXPROCS(0), recordchan)
 	case "file":
+		success := true
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(m.FileType) == "JSONL" {
 			fmt.Println("Reading as a JSONL file.")
-			writeJSONLFile(u.Path, recordchan)
+			success = writeJSONLFile(u.Path, recordchan)
 		} else if strings.HasSuffix(u.Path, "gz") || strings.ToUpper(m.FileType) == "GZ" {
 			fmt.Println("Reading as a GZ file.")
-			writeGZFile(u.Path, recordchan)
+			success = writeGZFile(u.Path, recordchan)
 		} else {
 			valid := validate(u.Path)
 			fmt.Println("Is valid JSON?", valid)
 			//TODO: process JSON file?
 			close(recordchan)
+		}
+		if !success {
+			panic("Unable to continue.")
 		}
 	case "sqs":
 		fmt.Println("Move to SQS not implemented.")
@@ -131,13 +135,19 @@ func writeStdout(recordchan chan queues.Record) bool {
 	err = writer.Flush()
 	if err != nil {
 		fmt.Println("Error flushing stdout", err)
+		return false
 	}
-	return false
+	return true
 }
 
 // ----------------------------------------------------------------------------
 
 func writeJSONLFile(fileName string, recordchan chan queues.Record) bool {
+	_, err := os.Stat(fileName)
+	if err == nil { //file exists
+		fmt.Println("Error output file", fileName, "exists.")
+		return false
+	}
 	f, err := os.Create(fileName)
 	defer f.Close()
 	if err != nil {
@@ -159,25 +169,43 @@ func writeJSONLFile(fileName string, recordchan chan queues.Record) bool {
 	err = writer.Flush()
 	if err != nil {
 		fmt.Println("Error flushing", fileName, err)
+		return false
 	}
-	return false
+	return true
 }
 
 // ----------------------------------------------------------------------------
 
 func writeGZFile(fileName string, recordchan chan queues.Record) bool {
-	_, err := os.Stdout.Stat()
-	if err != nil {
-		fmt.Println("Fatal error opening stdout.", err)
+	_, err := os.Stat(fileName)
+	if err == nil { //file exists
+		fmt.Println("Error output file", fileName, "exists.")
 		return false
 	}
-	// printFileInfo(info)
+	f, err := os.Create(fileName)
+	defer f.Close()
+	if err != nil {
+		fmt.Println("Fatal error opening", fileName, err)
+		return false
+	}
+	info, err := f.Stat()
+	if err != nil {
+		fmt.Println("Fatal error opening", fileName, err)
+		return false
+	}
+	printFileInfo(info)
 
-	writer := bufio.NewWriter(os.Stdout)
+	writer := bufio.NewWriter(f)
 	for record := range recordchan {
 		writer.WriteString(record.GetMessage())
+		writer.WriteString("\n")
 	}
-	return false
+	err = writer.Flush()
+	if err != nil {
+		fmt.Println("Error flushing", fileName, err)
+		return false
+	}
+	return true
 }
 
 // ----------------------------------------------------------------------------
