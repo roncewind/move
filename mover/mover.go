@@ -131,6 +131,7 @@ func writeStdout(recordchan chan queues.Record) bool {
 	writer := bufio.NewWriter(os.Stdout)
 	for record := range recordchan {
 		writer.WriteString(record.GetMessage())
+		writer.WriteString("\n")
 	}
 	err = writer.Flush()
 	if err != nil {
@@ -194,8 +195,9 @@ func writeGZFile(fileName string, recordchan chan queues.Record) bool {
 		return false
 	}
 	printFileInfo(info)
-
-	writer := bufio.NewWriter(f)
+	gzfile := gzip.NewWriter(f)
+	defer gzfile.Close()
+	writer := bufio.NewWriter(gzfile)
 	for record := range recordchan {
 		writer.WriteString(record.GetMessage())
 		writer.WriteString("\n")
