@@ -12,6 +12,7 @@ import (
 	"github.com/roncewind/move/mover"
 	"github.com/senzing/senzing-tools/constant"
 	"github.com/senzing/senzing-tools/envar"
+	"github.com/senzing/senzing-tools/helper"
 	"github.com/senzing/senzing-tools/option"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -23,6 +24,17 @@ const (
 	defaultInputURL       string = ""
 	defaultOutputURL      string = ""
 	defaultLogLevel       string = "error"
+	Use                   string = "move"
+	Short                 string = "Move records from one location to another."
+	Long                  string = `
+	Welcome to move!
+	This tool will move records from one place to another. It validates the records conform to the Generic Entity Specification.
+
+	For example:
+
+	move --input-url "file:///path/to/json/lines/file.jsonl" --output-url "amqp://guest:guest@192.168.6.96:5672"
+	move --input-url "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl" --output-url "amqp://guest:guest@192.168.6.96:5672"
+`
 )
 
 const (
@@ -39,54 +51,67 @@ var (
 	programName    string = fmt.Sprintf("move-%d", time.Now().Unix())
 )
 
-// RootCmd represents the base command when called without any subcommands
+// ----------------------------------------------------------------------------
+// Command
+// ----------------------------------------------------------------------------
+
+// RootCmd represents the command.
 var RootCmd = &cobra.Command{
-	Use:   "move",
-	Short: "Move records from one location to another.",
-	Long: `
-	Welcome to move!
-	This tool will move records from one place to another. It validates the records conform to the Generic Entity Specification.
+	Use:     Use,
+	Short:   Short,
+	Long:    Long,
+	PreRun:  PreRun,
+	Run:     Run,
+	Version: Version(),
+}
 
-	For example:
+// ----------------------------------------------------------------------------
 
-	move --input-url "file:///path/to/json/lines/file.jsonl" --output-url "amqp://guest:guest@192.168.6.96:5672"
-	move --input-url "https://public-read-access.s3.amazonaws.com/TestDataSets/SenzingTruthSet/truth-set-3.0.0.jsonl" --output-url "amqp://guest:guest@192.168.6.96:5672"
-`,
-	PreRun: func(cobraCommand *cobra.Command, args []string) {
-		loadConfigurationFile(cobraCommand)
-		loadOptions(cobraCommand)
-		cobraCommand.SetVersionTemplate(constant.VersionTemplate)
-	},
-	// The core of this command:
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("start Run")
-		fmt.Println("viper key list:")
-		for _, key := range viper.AllKeys() {
-			fmt.Println("  - ", key, " = ", viper.Get(key))
+// Used in construction of cobra.Command
+func PreRun(cobraCommand *cobra.Command, args []string) {
+	loadConfigurationFile(cobraCommand)
+	loadOptions(cobraCommand)
+	cobraCommand.SetVersionTemplate(constant.VersionTemplate)
+}
+
+// ----------------------------------------------------------------------------
+
+// The core of this command
+func Run(cmd *cobra.Command, args []string) {
+	fmt.Println("start Run")
+	fmt.Println("viper key list:")
+	for _, key := range viper.AllKeys() {
+		fmt.Println("  - ", key, " = ", viper.Get(key))
+	}
+	setLogLevel()
+	fmt.Println(time.Now(), "Sleep for", viper.GetInt(option.DelayInSeconds), "seconds to let RabbitMQ and Postgres settle down and come up.")
+	time.Sleep(time.Duration(viper.GetInt(option.DelayInSeconds)) * time.Second)
+
+	if viper.IsSet(option.InputURL) &&
+		viper.IsSet(option.OutputURL) {
+
+		ctx := context.Background()
+
+		mover := &mover.MoverImpl{
+			FileType:  viper.GetString(option.InputFileType),
+			InputURL:  viper.GetString(option.InputURL),
+			LogLevel:  viper.GetString(option.LogLevel),
+			OutputURL: viper.GetString(option.OutputURL),
 		}
-		setLogLevel()
-		fmt.Println(time.Now(), "Sleep for", viper.GetInt(option.DelayInSeconds), "seconds to let RabbitMQ and Postgres settle down and come up.")
-		time.Sleep(time.Duration(viper.GetInt(option.DelayInSeconds)) * time.Second)
+		mover.Move(ctx)
 
-		if viper.IsSet(option.InputURL) &&
-			viper.IsSet(option.OutputURL) {
+	} else {
+		cmd.Help()
+		fmt.Println("Build Version:", buildVersion)
+		fmt.Println("Build Iteration:", buildIteration)
+	}
+}
 
-			ctx := context.Background()
+// ----------------------------------------------------------------------------
 
-			mover := &mover.MoverImpl{
-				FileType:  viper.GetString(option.InputFileType),
-				InputURL:  viper.GetString(option.InputURL),
-				LogLevel:  viper.GetString(option.LogLevel),
-				OutputURL: viper.GetString(option.OutputURL),
-			}
-			mover.Move(ctx)
-
-		} else {
-			cmd.Help()
-			fmt.Println("Build Version:", buildVersion)
-			fmt.Println("Build Iteration:", buildIteration)
-		}
-	},
+// Used in construction of cobra.Command
+func Version() string {
+	return helper.MakeVersion(githubVersion, githubIteration)
 }
 
 // ----------------------------------------------------------------------------
