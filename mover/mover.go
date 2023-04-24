@@ -105,7 +105,8 @@ func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
 			valid := validate(u.Path)
 			fmt.Println("Is valid JSON?", valid)
 			//TODO: process JSON file?
-			close(recordchan)
+			fmt.Println("Only able to process JSON-Lines files at this time.")
+			success = false
 		}
 		if !success {
 			panic("Unable to continue.")
