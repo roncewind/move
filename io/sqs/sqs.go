@@ -2,6 +2,7 @@ package sqs
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/roncewind/go-util/queues"
 	"github.com/roncewind/go-util/queues/sqs"
@@ -12,7 +13,15 @@ import (
 
 // Start moving records in the recordchan to SQS
 func StartProducer(ctx context.Context, urlString string, numberOfWorkers int, recordchan <-chan queues.Record) {
-	client := sqs.NewClient(ctx, urlString)
+
+	fmt.Println("Get new sqs client")
+	client, err := sqs.NewClient(ctx, urlString)
+	if err != nil {
+		fmt.Println("SQS new client error:", err)
+		return
+	}
+	fmt.Println("SQS client:", client)
+
 }
 
 // ----------------------------------------------------------------------------

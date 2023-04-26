@@ -19,6 +19,7 @@ import (
 
 	"github.com/roncewind/go-util/queues"
 	"github.com/roncewind/move/io/rabbitmq"
+	"github.com/roncewind/move/io/sqs"
 	"github.com/senzing/go-common/record"
 )
 
@@ -112,7 +113,7 @@ func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
 			panic("Unable to continue.")
 		}
 	case "sqs":
-		fmt.Println("Move to SQS not implemented.")
+		sqs.StartProducer(ctx, outputURL, runtime.GOMAXPROCS(0), recordchan)
 	default:
 		fmt.Println("Unknown URL Scheme.  Unable to write to:", outputURL)
 	}
