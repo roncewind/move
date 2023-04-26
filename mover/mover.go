@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/roncewind/go-util/queues"
-	"github.com/roncewind/move/io/rabbitmq/managedproducer"
+	"github.com/roncewind/move/io/rabbitmq"
 	"github.com/senzing/go-common/record"
 )
 
@@ -92,7 +92,7 @@ func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
 	printURL(u)
 	switch u.Scheme {
 	case "amqp":
-		managedproducer.StartManagedProducer(ctx, outputURL, runtime.GOMAXPROCS(0), recordchan)
+		rabbitmq.StartProducer(ctx, outputURL, runtime.GOMAXPROCS(0), recordchan)
 	case "file":
 		success := true
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(m.FileType) == "JSONL" {
