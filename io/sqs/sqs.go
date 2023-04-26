@@ -21,6 +21,13 @@ func StartProducer(ctx context.Context, urlString string, numberOfWorkers int, r
 		return
 	}
 	fmt.Println("SQS client:", client)
+	for record := range recordchan {
+		err := client.Push(ctx, record)
+		if err != nil {
+			fmt.Println("Error pushing record:", err)
+			fmt.Println("Record:", record)
+		}
+	}
 
 }
 
