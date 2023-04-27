@@ -46,7 +46,12 @@ func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g
 	fmt.Println("SQS client:", client)
 	msgChan, err := client.Consume(ctx)
 	for record := range util.OrDone(ctx, msgChan) {
-		fmt.Println(record.Body)
+		fmt.Println(record.Body) //TODO: added Senzing here
+		//as long as there was no error delete the message
+		err = client.RemoveMessage(ctx, record)
+		if err != nil {
+			fmt.Println("Error removing message", record)
+		}
 	}
 	return nil
 }
