@@ -6,6 +6,7 @@ import (
 
 	"github.com/roncewind/go-util/queues"
 	"github.com/roncewind/go-util/queues/sqs"
+	"github.com/roncewind/go-util/util"
 	"github.com/senzing/g2-sdk-go/g2api"
 )
 
@@ -34,6 +35,18 @@ func StartProducer(ctx context.Context, urlString string, numberOfWorkers int, r
 // ----------------------------------------------------------------------------
 
 // Start processing records in SQS
-func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g2engine *g2api.G2engine, withInfo bool) error {
+func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g2engine *g2api.G2engine, withInfo bool) (err error) {
+
+	fmt.Println("Get new sqs client")
+	client, err := sqs.NewClient(ctx, urlString)
+	if err != nil {
+		fmt.Println("SQS new client error:", err)
+		return
+	}
+	fmt.Println("SQS client:", client)
+	msgChan, err := client.Consume(ctx)
+	for record := range util.OrDone(ctx, msgChan) {
+		fmt.Println(record.Body)
+	}
 	return nil
 }
