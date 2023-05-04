@@ -50,7 +50,7 @@ func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g
 	fmt.Println("SQS client:", client)
 	msgChan, err := client.Consume(ctx)
 	for record := range util.OrDone(ctx, msgChan) {
-		fmt.Println("Record Body:", record.Body) //TODO: added Senzing here
+		fmt.Println("Record Body:", *record.Body) //TODO: added Senzing here
 		//TODO: watch how long processing is taking and update the visibility timeout
 		//TODO: on error add message to Dead Letter Queue
 		//as long as there was no error delete the message from the queue
