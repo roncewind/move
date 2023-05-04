@@ -113,6 +113,11 @@ func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
 			panic("Unable to continue.")
 		}
 	case "sqs":
+		//allows for using a dummy URL with just a queue-name
+		// eg  sqs://lookup?queue-name=myqueue
+		sqs.StartProducer(ctx, outputURL, runtime.GOMAXPROCS(0), recordchan)
+	case "https":
+		//uses actual AWS SQS URL
 		sqs.StartProducer(ctx, outputURL, runtime.GOMAXPROCS(0), recordchan)
 	default:
 		fmt.Println("Unknown URL Scheme.  Unable to write to:", outputURL)
