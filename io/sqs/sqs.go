@@ -47,6 +47,15 @@ func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g
 		fmt.Println("SQS new client error:", err)
 		return
 	}
+
+	var deadLetterQueueClient *sqs.Client
+	if len(client.DeadLetterQueueURL) > 0 {
+		deadLetterQueueClient, err = sqs.NewClient(ctx, client.DeadLetterQueueURL)
+		if err != nil {
+			fmt.Println("SQS dead letter queue new client error:", err)
+			deadLetterQueueClient = nil
+		}
+	}
 	fmt.Println("SQS client:", client)
 	msgChan, err := client.Consume(ctx)
 	for record := range util.OrDone(ctx, msgChan) {

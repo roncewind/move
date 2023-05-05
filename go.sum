@@ -199,6 +199,8 @@ github.com/roncewind/go-util v0.0.5-0.20230504204956-50acfc3b98f4 h1:fCf6VclzyyQ
 github.com/roncewind/go-util v0.0.5-0.20230504204956-50acfc3b98f4/go.mod h1:3W93f0MuKIQJA21OqGPcjzw87zc1TFFTn/O0lWB2Ahg=
 github.com/roncewind/go-util v0.0.5-0.20230505140743-bee908cd0f0d h1:8hBoMWX0Bq5frUwbnGYn6LkOQUxmHJmwqF2Iue2KL7I=
 github.com/roncewind/go-util v0.0.5-0.20230505140743-bee908cd0f0d/go.mod h1:3W93f0MuKIQJA21OqGPcjzw87zc1TFFTn/O0lWB2Ahg=
+github.com/roncewind/go-util v0.0.5-0.20230505142406-f3f3f3758631 h1:/8RQERS8VkwA+WK/sy2QCHLR4KVqLrmYD00MNnxP4fI=
+github.com/roncewind/go-util v0.0.5-0.20230505142406-f3f3f3758631/go.mod h1:3W93f0MuKIQJA21OqGPcjzw87zc1TFFTn/O0lWB2Ahg=
 github.com/russross/blackfriday/v2 v2.1.0 h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf35Ld67mk=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/senzing/g2-sdk-go v0.6.1 h1:E+iIkq4RL0CHYxfJoAJWGP2gnGv6DvW55sEgtIdeTLg=
