@@ -49,12 +49,17 @@ func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g
 	}
 	fmt.Println("SQS client:", client)
 	msgChan, err := client.Consume(ctx)
+	if err != nil {
+		fmt.Println("SQS consume error:", err)
+		return
+	}
 	for record := range util.OrDone(ctx, msgChan) {
 		fmt.Println("Record Body:", *record.Body) //TODO: added Senzing here
 		//TODO: watch how long processing is taking and update the visibility timeout
 		//TODO: on error add message to Dead Letter Queue
 
 		err := client.PushDeadRecord(ctx, record)
+		//TODO:  ignore error for dead records?
 
 		//as long as there was no error delete the message from the queue
 		err = client.RemoveMessage(ctx, record)
