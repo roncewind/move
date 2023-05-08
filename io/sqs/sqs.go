@@ -54,10 +54,12 @@ func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g
 		return
 	}
 	for record := range util.OrDone(ctx, msgChan) {
-		fmt.Println("Record Body:", *record.Body) //TODO: added Senzing here
-		//TODO: watch how long processing is taking and update the visibility timeout
-		//TODO: on error add message to Dead Letter Queue
 
+		fmt.Println("Record Body:", *record.Body)
+		//TODO: added Senzing here
+		//TODO: watch how long processing is taking and update the visibility timeout
+
+		//TODO: on error add message to Dead Letter Queue
 		err := client.PushDeadRecord(ctx, record)
 		//TODO:  ignore error for dead records?
 
