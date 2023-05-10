@@ -26,13 +26,6 @@ func StartProducer(ctx context.Context, urlString string, numberOfWorkers int, r
 	if err != nil {
 		fmt.Println("Error pushing record batch:", err)
 	}
-	// for record := range recordchan {
-	// 	err := client.Push(ctx, record)
-	// 	if err != nil {
-	// 		fmt.Println("Error pushing record:", err)
-	// 		fmt.Println("Record:", record)
-	// 	}
-	// }
 
 }
 
