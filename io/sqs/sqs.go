@@ -7,6 +7,7 @@ import (
 	"github.com/roncewind/go-util/queues"
 	"github.com/roncewind/go-util/queues/sqs"
 	"github.com/roncewind/go-util/util"
+	"github.com/roncewind/move/io/sqs/managedproducer"
 	"github.com/senzing/g2-sdk-go/g2api"
 )
 
@@ -15,17 +16,19 @@ import (
 // Start moving records in the recordchan to SQS
 func StartProducer(ctx context.Context, urlString string, numberOfWorkers int, recordchan <-chan queues.Record) {
 
-	fmt.Println("Get new sqs client")
-	client, err := sqs.NewClient(ctx, urlString)
-	if err != nil {
-		fmt.Println("SQS new client error:", err)
-		return
-	}
-	fmt.Println("SQS client:", client)
-	client.PushBatch(ctx, recordchan)
-	if err != nil {
-		fmt.Println("Error pushing record batch:", err)
-	}
+	managedproducer.StartManagedProducer(ctx, urlString, numberOfWorkers, recordchan)
+
+	// fmt.Println("Get new sqs client")
+	// client, err := sqs.NewClient(ctx, urlString)
+	// if err != nil {
+	// 	fmt.Println("SQS new client error:", err)
+	// 	return
+	// }
+	// fmt.Println("SQS client:", client)
+	// client.PushBatch(ctx, recordchan)
+	// if err != nil {
+	// 	fmt.Println("Error pushing record batch:", err)
+	// }
 
 }
 
