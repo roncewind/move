@@ -37,7 +37,7 @@ func processRecord(ctx context.Context, record queues.Record, newClientFn func()
 	client := <-clientPool
 	err = client.Push(ctx, record)
 	if err != nil {
-		// on error, create a new RabbitMQ client
+		// on error, create a new SQS client
 		err = ManagedProducerError{util.WrapError(err, err.Error())}
 		//put a new client in the pool, dropping the current one
 		newClient, newClientErr := newClientFn()
@@ -98,7 +98,7 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 	cancel()
 	fmt.Println(time.Now(), "Cleaup job queue and client pool.")
 	close(clientPool)
-	// drain the client pool, closing rabbit mq connections
+	// drain the client pool, closing sqs connections
 	for len(clientPool) > 0 {
 		client, ok := <-clientPool
 		if ok && client != nil {
@@ -123,6 +123,6 @@ func createClients(ctx context.Context, numOfClients int, newClientFn func() (*s
 			clientPool <- client
 		}
 	}
-	fmt.Println(time.Now(), countOfClientsCreated, "rabbitMQ clients created,", numOfClients, "requested")
+	fmt.Println(time.Now(), countOfClientsCreated, "SQ clients created,", numOfClients, "requested")
 	return errorStack
 }
