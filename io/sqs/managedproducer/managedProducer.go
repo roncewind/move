@@ -32,6 +32,7 @@ type RabbitJob struct {
 // ----------------------------------------------------------------------------
 
 // read a record from the record channel and push it to the RabbitMQ queue
+// TODO: batch send records
 func processRecord(ctx context.Context, record queues.Record, newClientFn func() (*sqs.Client, error)) (err error) {
 	client := <-clientPool
 	err = client.Push(ctx, record)
@@ -80,6 +81,7 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 	for record := range recordchan {
 		record := record
 		p.Go(func() {
+			//TODO: batch send records
 			err := processRecord(ctx, record, newClientFn)
 			if err != nil {
 				// TODO:  on error should the record get put back into the record channel?
