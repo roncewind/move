@@ -94,7 +94,7 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 
 	// clean up after ourselves
 	cancel()
-	fmt.Println(time.Now(), "Cleaup job queue and client pool.")
+	fmt.Println(time.Now(), "Clean up job queue and client pool.")
 	close(clientPool)
 	// drain the client pool, closing rabbit mq connections
 	for len(clientPool) > 0 {
