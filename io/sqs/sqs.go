@@ -57,10 +57,10 @@ func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g
 		//TODO: watch how long processing is taking and update the visibility timeout
 
 		//TODO: on error add message to Dead Letter Queue
-		err := client.PushDeadRecord(ctx, record)
-		if err != nil {
-			fmt.Println("Error pushing message to the dead letter queue", record)
-		}
+		// err := client.PushDeadRecord(ctx, record)
+		// if err != nil {
+		// 	fmt.Println("Error pushing message to the dead letter queue", record)
+		// }
 		//TODO:  ignore error for dead records?
 
 		//as long as there was no error delete the message from the queue
