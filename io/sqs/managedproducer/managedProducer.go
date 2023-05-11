@@ -32,10 +32,34 @@ type RabbitJob struct {
 // ----------------------------------------------------------------------------
 
 // read a record from the record channel and push it to the RabbitMQ queue
-// TODO: batch send records
 func processRecord(ctx context.Context, record queues.Record, newClientFn func() (*sqs.Client, error)) (err error) {
 	client := <-clientPool
 	err = client.Push(ctx, record)
+	if err != nil {
+		// on error, create a new SQS client
+		err = ManagedProducerError{util.WrapError(err, err.Error())}
+		//put a new client in the pool, dropping the current one
+		newClient, newClientErr := newClientFn()
+		if newClientErr != nil {
+			err = ManagedProducerError{util.WrapError(newClientErr, newClientErr.Error())}
+		} else {
+			clientPool <- newClient
+		}
+		// make sure to close the old client
+		client.Close()
+		return
+	}
+	// return the client to the pool when done
+	clientPool <- client
+	return
+}
+
+// ----------------------------------------------------------------------------
+
+// read a record from the record channel and push it to the RabbitMQ queue
+func processRecordBatch(ctx context.Context, recordchan <-chan queues.Record, newClientFn func() (*sqs.Client, error)) (err error) {
+	client := <-clientPool
+	err = client.PushBatch(ctx, recordchan)
 	if err != nil {
 		// on error, create a new SQS client
 		err = ManagedProducerError{util.WrapError(err, err.Error())}
@@ -78,18 +102,27 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 	go createClients(ctx, numberOfWorkers, newClientFn)
 
 	p := pool.New().WithMaxGoroutines(numberOfWorkers)
-	for record := range recordchan {
-		record := record
+	for i := 0; i < numberOfWorkers; i++ {
 		p.Go(func() {
-			//TODO: batch send records
-			err := processRecord(ctx, record, newClientFn)
+			err := processRecordBatch(ctx, recordchan, newClientFn)
 			if err != nil {
 				// TODO:  on error should the record get put back into the record channel?
 				fmt.Println("Worker error:", err)
-				fmt.Println("Failed to move record:", record.GetMessageId())
 			}
 		})
 	}
+	// for record := range recordchan {
+	// 	record := record
+	// 	p.Go(func() {
+	// 		//TODO: batch send records
+	// 		err := processRecord(ctx, record, newClientFn)
+	// 		if err != nil {
+	// 			// TODO:  on error should the record get put back into the record channel?
+	// 			fmt.Println("Worker error:", err)
+	// 			fmt.Println("Failed to move record:", record.GetMessageId())
+	// 		}
+	// 	})
+	// }
 
 	// Wait for all the records in the record channel to be processed
 	p.Wait()
