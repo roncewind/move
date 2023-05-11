@@ -60,12 +60,13 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 			// fmt.Printf("Record added: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
 			// fmt.Printf("WithInfo: %s\n", withInfo)
 		} else {
-			addRecordErr := (*j.engine).AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
-			if addRecordErr != nil {
-				// fmt.Println(time.Now(), "Error adding record:", *j.message.MessageId, "error:", addRecordErr)
-				fmt.Printf("Record in error: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
-				return addRecordErr
-			}
+			fmt.Println("Record added:", record.Id)
+			// addRecordErr := (*j.engine).AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
+			// if addRecordErr != nil {
+			// 	// fmt.Println(time.Now(), "Error adding record:", *j.message.MessageId, "error:", addRecordErr)
+			// 	fmt.Printf("Record in error: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
+			// 	return addRecordErr
+			// }
 		}
 
 		// when we successfully process a message, delete it.
