@@ -159,7 +159,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 		})
 
 		jobCount++
-		fmt.Println("Processed message:", message.MessageId)
+		fmt.Println("Processed MessageId:", *message.MessageId)
 		fmt.Println("Processed message count:", jobCount)
 		if jobCount%10000 == 0 {
 			fmt.Println(time.Now(), "Jobs added to job queue:", jobCount)
