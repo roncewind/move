@@ -75,6 +75,7 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 		if err != nil {
 			fmt.Println("Error removing message", record)
 		}
+		fmt.Println("Record removed from queue:", record.Id)
 	} else {
 		// logger.LogMessageFromError(MessageIdFormat, 2001, "create new szRecord", newRecordErr)
 		fmt.Println(time.Now(), "Invalid delivery from SQS:", *j.message.MessageId)
@@ -158,6 +159,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 		})
 
 		jobCount++
+		fmt.Println("Processed message", jobCount)
 		if jobCount%10000 == 0 {
 			fmt.Println(time.Now(), "Jobs added to job queue:", jobCount)
 		}
