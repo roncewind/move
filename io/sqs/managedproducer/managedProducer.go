@@ -103,7 +103,6 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 
 	p := pool.New().WithMaxGoroutines(numberOfWorkers)
 	for i := 0; i < numberOfWorkers; i++ {
-		fmt.Println("started worker:", i)
 		p.Go(func() {
 			i := i
 			err := processRecordBatch(ctx, recordchan, newClientFn)
@@ -111,7 +110,6 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 				// TODO:  on error should the record get put back into the record channel?
 				fmt.Println("Worker[", i, "] error:", err)
 			}
-			fmt.Println("worker[", i, "] finished")
 		})
 	}
 	// for record := range recordchan {
