@@ -105,6 +105,7 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 	for i := 0; i < numberOfWorkers; i++ {
 		fmt.Println("started worker:", i)
 		p.Go(func() {
+			i := i
 			err := processRecordBatch(ctx, recordchan, newClientFn)
 			if err != nil {
 				// TODO:  on error should the record get put back into the record channel?
