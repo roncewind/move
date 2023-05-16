@@ -53,7 +53,7 @@ func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g
 	for record := range util.OrDone(ctx, msgChan) {
 
 		// fmt.Println("Record address", record)
-		fmt.Println("Record MessageBody:", *record.Body)
+		fmt.Println("Record MessageBody:", record.Body)
 		//TODO: added Senzing here
 		//TODO: watch how long processing is taking and update the visibility timeout
 
@@ -65,7 +65,7 @@ func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g
 		//TODO:  ignore error for dead records?
 
 		//as long as there was no error delete the message from the queue
-		err = client.RemoveMessage(ctx, record)
+		err = client.RemoveMessage(ctx, &record)
 		if err != nil {
 			fmt.Println("Error removing message", record)
 		}

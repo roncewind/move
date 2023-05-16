@@ -150,7 +150,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	jobCount := 0
 	for message := range messages {
 		job := <-jobPool
-		job.message = message
+		job.message = &message
 		p.Go(func() {
 			err := job.Execute(ctx)
 			if err != nil {
