@@ -18,18 +18,6 @@ func StartProducer(ctx context.Context, urlString string, numberOfWorkers int, r
 
 	managedproducer.StartManagedProducer(ctx, urlString, numberOfWorkers, recordchan)
 
-	// fmt.Println("Get new sqs client")
-	// client, err := sqs.NewClient(ctx, urlString)
-	// if err != nil {
-	// 	fmt.Println("SQS new client error:", err)
-	// 	return
-	// }
-	// fmt.Println("SQS client:", client)
-	// client.PushBatch(ctx, recordchan)
-	// if err != nil {
-	// 	fmt.Println("Error pushing record batch:", err)
-	// }
-
 }
 
 // ----------------------------------------------------------------------------
