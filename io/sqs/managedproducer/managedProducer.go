@@ -56,7 +56,7 @@ func processRecord(ctx context.Context, record queues.Record, newClientFn func()
 
 // ----------------------------------------------------------------------------
 
-// read a record from the record channel and push it to the RabbitMQ queue
+// read a record from the record channel and push it to the SQS queue
 func processRecordBatch(ctx context.Context, recordchan <-chan queues.Record, newClientFn func() (*sqs.Client, error)) (err error) {
 	client := <-clientPool
 	err = client.PushBatch(ctx, recordchan)
@@ -145,6 +145,6 @@ func createClients(ctx context.Context, numOfClients int, newClientFn func() (*s
 			clientPool <- client
 		}
 	}
-	fmt.Println(time.Now(), countOfClientsCreated, "SQ clients created,", numOfClients, "requested")
+	fmt.Println(time.Now(), countOfClientsCreated, "SQS clients created,", numOfClients, "requested")
 	return errorStack
 }
