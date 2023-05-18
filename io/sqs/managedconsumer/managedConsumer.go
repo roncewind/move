@@ -104,7 +104,7 @@ func (j *SQSJob) OnError(err error) {
 }
 
 // ----------------------------------------------------------------------------
-// -- add records in RabbitMQ to Senzing
+// -- add records in SQS to Senzing
 // ----------------------------------------------------------------------------
 
 // Starts a number of workers that read Records from the given queue and add
@@ -124,11 +124,11 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 
 	client, err := sqs.NewClient(ctx, urlString)
 	if err != nil {
-		return ManagedConsumerError{util.WrapError(err, "unable to get a new RabbitMQ client")}
+		return ManagedConsumerError{util.WrapError(err, "unable to get a new SQS client")}
 	}
 	defer client.Close()
 
-	// setup jobs that will be used to process RabbitMQ deliveries
+	// setup jobs that will be used to process SQS deliveries
 	jobPool = make(chan *SQSJob, numberOfWorkers)
 	for i := 0; i < numberOfWorkers; i++ {
 		jobPool <- &SQSJob{
@@ -143,7 +143,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	messages, err := client.Consume(ctx)
 	if err != nil {
 		fmt.Println(time.Now(), "Error getting delivery channel:", err)
-		return ManagedConsumerError{util.WrapError(err, "unable to get a new RabbitMQ delivery channel")}
+		return ManagedConsumerError{util.WrapError(err, "unable to get a new SQS message channel")}
 	}
 
 	p := pool.New().WithMaxGoroutines(numberOfWorkers)
