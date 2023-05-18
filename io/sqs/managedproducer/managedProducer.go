@@ -23,11 +23,11 @@ type ManagedProducerError struct {
 // ----------------------------------------------------------------------------
 
 // define a structure that will implement the Job interface
-type RabbitJob struct {
-	id          int
-	newClientFn func() (*sqs.Client, error)
-	record      queues.Record
-}
+// type SqsJob struct {
+// 	id          int
+// 	newClientFn func() (*sqs.Client, error)
+// 	record      queues.Record
+// }
 
 // ----------------------------------------------------------------------------
 
@@ -112,18 +112,6 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 			}
 		})
 	}
-	// for record := range recordchan {
-	// 	record := record
-	// 	p.Go(func() {
-	// 		//TODO: batch send records
-	// 		err := processRecord(ctx, record, newClientFn)
-	// 		if err != nil {
-	// 			// TODO:  on error should the record get put back into the record channel?
-	// 			fmt.Println("Worker error:", err)
-	// 			fmt.Println("Failed to move record:", record.GetMessageId())
-	// 		}
-	// 	})
-	// }
 
 	// Wait for all the records in the record channel to be processed
 	p.Wait()
