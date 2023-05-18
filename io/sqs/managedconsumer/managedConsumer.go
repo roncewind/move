@@ -52,7 +52,6 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 			var flags int64 = 0
 			_, withInfoErr := (*j.engine).AddRecordWithInfo(ctx, record.DataSource, record.Id, record.Json, loadID, flags)
 			if withInfoErr != nil {
-				// fmt.Println(time.Now(), "Error adding record:", *j.message.MessageId, "error:", withInfoErr)
 				fmt.Printf("Record in error: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
 				return withInfoErr
 			}
@@ -61,12 +60,11 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 			// fmt.Printf("WithInfo: %s\n", withInfo)
 		} else {
 			fmt.Println("Record added:", record.Id)
-			// addRecordErr := (*j.engine).AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
-			// if addRecordErr != nil {
-			// 	// fmt.Println(time.Now(), "Error adding record:", *j.message.MessageId, "error:", addRecordErr)
-			// 	fmt.Printf("Record in error: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
-			// 	return addRecordErr
-			// }
+			addRecordErr := (*j.engine).AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
+			if addRecordErr != nil {
+				fmt.Printf("Record in error: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
+				return addRecordErr
+			}
 		}
 
 		// when we successfully process a message, delete it.
