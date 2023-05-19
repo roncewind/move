@@ -84,7 +84,7 @@ func Run(cmd *cobra.Command, args []string) {
 		fmt.Println("  - ", key, " = ", viper.Get(key))
 	}
 	setLogLevel()
-	fmt.Println(time.Now(), "Sleep for", viper.GetInt(option.DelayInSeconds), "seconds to let RabbitMQ and Postgres settle down and come up.")
+	fmt.Println(time.Now(), "Sleep for", viper.GetInt(option.DelayInSeconds), "seconds to let queues and databases settle down and come up.")
 	time.Sleep(time.Duration(viper.GetInt(option.DelayInSeconds)) * time.Second)
 
 	if viper.IsSet(option.InputURL) &&
