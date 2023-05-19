@@ -59,8 +59,9 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 			// fmt.Printf("Record added: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
 			// fmt.Printf("WithInfo: %s\n", withInfo)
 		} else {
-			fmt.Println("Record added:", record.Id, "MessageId:", *j.message.MessageId)
+			fmt.Println("Call AddRecord:", record.Id, "MessageId:", *j.message.MessageId)
 			addRecordErr := (*j.engine).AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
+			fmt.Println("Record added:", record.Id, "MessageId:", *j.message.MessageId)
 			if addRecordErr != nil {
 				fmt.Printf("Record in error: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
 				return addRecordErr
