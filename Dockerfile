@@ -2,7 +2,7 @@
 # Stages
 # -----------------------------------------------------------------------------
 
-ARG IMAGE_GO_BUILDER=golang:1.20.2
+ARG IMAGE_GO_BUILDER=golang:1.20.4
 ARG IMAGE_FINAL=senzing/senzingapi-runtime:latest
 
 # -----------------------------------------------------------------------------
@@ -27,8 +27,10 @@ ARG GO_PACKAGE_NAME="github.com/roncewind/move"
 # COPY ./rootfs /
 COPY . ${GOPATH}/src/${GO_PACKAGE_NAME}
 
-# Build go program.
+# Install Certificate
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 
+# Build go program.
 WORKDIR ${GOPATH}/src/${GO_PACKAGE_NAME}
 RUN make build-scratch
 
@@ -55,8 +57,10 @@ LABEL Name="roncewind/move" \
       Maintainer="dad@lynntribe.net" \
       Version="0.0.0"
 
-# Copy files from prior step.
+# Copy Certificate
+COPY --from=go_builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
+# Copy files from prior step.
 COPY --from=go_builder "/output/scratch/move" "/app/move"
 
 # Runtime execution.
