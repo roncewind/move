@@ -15,7 +15,7 @@ import (
 	"github.com/sourcegraph/conc/pool"
 )
 
-var jobPool chan *SQSJob
+var jobPool chan SQSJob
 
 type ManagedConsumerError struct {
 	error
@@ -43,7 +43,7 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 	// increment the number of times this job struct was used and return to the pool
 	defer func() {
 		j.usedCount++
-		jobPool <- j
+		jobPool <- *j
 	}()
 	// fmt.Printf("Received a message- msgId: %s, msgCnt: %d, ConsumerTag: %s\n", id, *j.message.MessageCount, *j.message.ConsumerTag)
 	record, newRecordErr := record.NewRecord(string(*j.message.Body))
@@ -135,9 +135,9 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	defer client.Close()
 
 	// setup jobs that will be used to process SQS deliveries
-	jobPool = make(chan *SQSJob, numberOfWorkers)
+	jobPool = make(chan SQSJob, numberOfWorkers)
 	for i := 0; i < numberOfWorkers; i++ {
-		jobPool <- &SQSJob{
+		jobPool <- SQSJob{
 			client:    client,
 			engine:    g2engine,
 			id:        i,
@@ -178,7 +178,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	// clean up after ourselves
 	close(jobPool)
 	// drain the job pool
-	var job *SQSJob
+	var job SQSJob
 	ok := true
 	for ok {
 		job, ok = <-jobPool
