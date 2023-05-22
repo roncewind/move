@@ -2,6 +2,7 @@ package managedconsumer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"time"
@@ -48,6 +49,7 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 	record, newRecordErr := record.NewRecord(string(*j.message.Body))
 	if newRecordErr == nil {
 		loadID := "Load"
+
 		if j.withInfo {
 			var flags int64 = 0
 			_, withInfoErr := (*j.engine).AddRecordWithInfo(ctx, record.DataSource, record.Id, record.Json, loadID, flags)
@@ -112,6 +114,10 @@ func (j *SQSJob) OnError(err error) {
 // - Workers restart when they are killed or die.
 // - respond to standard system signals.
 func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers int, g2engine *g2api.G2engine, withInfo bool) error {
+
+	if g2engine == nil {
+		return errors.New("G2 Engine not set, unable to start the managed consumer")
+	}
 
 	//default to the max number of OS threads
 	if numberOfWorkers <= 0 {
