@@ -61,7 +61,6 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 			// fmt.Printf("Record added: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
 			// fmt.Printf("WithInfo: %s\n", withInfo)
 		} else {
-			fmt.Println(":", record.Id, "MessageId:", *j.message.MessageId)
 			addRecordErr := j.engine.AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
 			fmt.Println("Record added:", record.Id, "MessageId:", *j.message.MessageId)
 			if addRecordErr != nil {
@@ -70,7 +69,6 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 			}
 		}
 
-		fmt.Println("Calling remove message for record:", record.Id)
 		// when we successfully process a message, delete it.
 		//as long as there was no error delete the message from the queue
 		err := j.client.RemoveMessage(ctx, j.message)
@@ -165,8 +163,6 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 		})
 
 		jobCount++
-		fmt.Println("Processed MessageId:", *message.MessageId)
-		fmt.Println("Processed message count:", jobCount)
 		if jobCount%10000 == 0 {
 			fmt.Println(time.Now(), "Jobs added to job queue:", jobCount)
 		}
