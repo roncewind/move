@@ -28,9 +28,9 @@ type ManagedConsumerError struct {
 // define a structure that will implement the Job interface
 type SQSJob struct {
 	client    *sqs.Client
-	engine    *g2api.G2engine
+	engine    g2api.G2engine
 	id        int
-	message   *types.Message
+	message   types.Message
 	usedCount int
 	withInfo  bool
 }
@@ -52,7 +52,7 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 
 		if j.withInfo {
 			var flags int64 = 0
-			_, withInfoErr := (*j.engine).AddRecordWithInfo(ctx, record.DataSource, record.Id, record.Json, loadID, flags)
+			_, withInfoErr := j.engine.AddRecordWithInfo(ctx, record.DataSource, record.Id, record.Json, loadID, flags)
 			if withInfoErr != nil {
 				fmt.Printf("Record in error: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
 				return withInfoErr
@@ -61,8 +61,8 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 			// fmt.Printf("Record added: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
 			// fmt.Printf("WithInfo: %s\n", withInfo)
 		} else {
-			fmt.Println("Call AddRecord:", record.Id, "MessageId:", *j.message.MessageId)
-			addRecordErr := (*j.engine).AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
+			fmt.Println(":", record.Id, "MessageId:", *j.message.MessageId)
+			addRecordErr := j.engine.AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
 			fmt.Println("Record added:", record.Id, "MessageId:", *j.message.MessageId)
 			if addRecordErr != nil {
 				fmt.Printf("Record in error: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
@@ -113,7 +113,7 @@ func (j *SQSJob) OnError(err error) {
 // them to Senzing.
 // - Workers restart when they are killed or die.
 // - respond to standard system signals.
-func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers int, g2engine *g2api.G2engine, withInfo bool) error {
+func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers int, g2engine g2api.G2engine, withInfo bool) error {
 
 	if g2engine == nil {
 		return errors.New("G2 Engine not set, unable to start the managed consumer")
@@ -156,7 +156,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	jobCount := 0
 	for message := range messages {
 		job := <-jobPool
-		job.message = &message
+		job.message = message
 		p.Go(func() {
 			err := job.Execute(ctx)
 			if err != nil {

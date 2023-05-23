@@ -21,7 +21,7 @@ func StartProducer(ctx context.Context, urlString string, numberOfWorkers int, r
 // ----------------------------------------------------------------------------
 
 // Start processing records in SQS
-func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g2engine *g2api.G2engine, withInfo bool) (err error) {
+func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g2engine g2api.G2engine, withInfo bool) (err error) {
 	return managedconsumer.StartManagedConsumer(ctx, urlString, numberOfWorkers, g2engine, withInfo)
 
 	// fmt.Println("Get new sqs client")
