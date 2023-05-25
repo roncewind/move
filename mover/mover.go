@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -57,6 +58,22 @@ var (
 // read and only moves valid records.  typically used to move records from
 // a file to a queue for processing.
 func (m *MoverImpl) Move(ctx context.Context) {
+
+	logBuildInfo()
+	logStats()
+
+	ticker := time.NewTicker(time.Duration(m.MonitoringPeriodInSeconds) * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				logStats()
+			}
+		}
+	}()
+
 	waitGroup.Add(2)
 	recordchan := make(chan queues.Record, 10)
 	go m.read(ctx, recordchan)
@@ -508,6 +525,59 @@ func (m *MoverImpl) printURL(u *url.URL) {
 		fmt.Println("Key:", key, "=>", "Value:", value[0])
 	}
 
+}
+
+// ----------------------------------------------------------------------------
+
+func logBuildInfo() {
+	buildInfo, ok := debug.ReadBuildInfo()
+	fmt.Println("---------------------------------------------------------------")
+	if ok {
+		fmt.Println("GoVersion:", buildInfo.GoVersion)
+		fmt.Println("Path:", buildInfo.Path)
+		fmt.Println("Main.Path:", buildInfo.Main.Path)
+		fmt.Println("Main.Version:", buildInfo.Main.Version)
+	} else {
+		fmt.Println("Unable to read build info.")
+	}
+}
+
+// ----------------------------------------------------------------------------
+
+func logStats() {
+	cpus := runtime.NumCPU()
+	goRoutines := runtime.NumGoroutine()
+	cgoCalls := runtime.NumCgoCall()
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+	var gcStats debug.GCStats
+	debug.ReadGCStats(&gcStats)
+
+	// fmt.Println("---------------------------------------------------------------")
+	// fmt.Println("Time:", time.Now())
+	// fmt.Println("CPUs:", cpus)
+	// fmt.Println("Go routines:", goRoutines)
+	// fmt.Println("CGO calls:", cgoCalls)
+	// fmt.Println("Num GC:", memStats.NumGC)
+	// fmt.Println("GCSys:", memStats.GCSys)
+	// fmt.Println("GC pause total:", gcStats.PauseTotal)
+	// fmt.Println("LastGC:", gcStats.LastGC)
+	// fmt.Println("HeapAlloc:", memStats.HeapAlloc)
+	// fmt.Println("NextGC:", memStats.NextGC)
+	// fmt.Println("CPU fraction used by GC:", memStats.GCCPUFraction)
+
+	fmt.Println("---------------------------------------------------------------")
+	printCSV(">>>", "Time", "CPUs", "Go routines", "CGO calls", "Num GC", "GC pause total", "LastGC", "TotalAlloc", "HeapAlloc", "NextGC", "GCSys", "HeapSys", "StackSys", "Sys - total OS bytes", "CPU fraction used by GC")
+	printCSV(">>>", time.Now(), cpus, goRoutines, cgoCalls, memStats.NumGC, gcStats.PauseTotal, gcStats.LastGC, memStats.TotalAlloc, memStats.HeapAlloc, memStats.NextGC, memStats.GCSys, memStats.HeapSys, memStats.StackSys, memStats.Sys, memStats.GCCPUFraction)
+}
+
+// ----------------------------------------------------------------------------
+
+func printCSV(fields ...any) {
+	for _, field := range fields {
+		fmt.Print(field, ",")
+	}
+	fmt.Println("")
 }
 
 // ----------------------------------------------------------------------------

@@ -83,14 +83,15 @@ func PreRun(cobraCommand *cobra.Command, args []string) {
 
 // The core of this command
 func Run(cmd *cobra.Command, args []string) {
-	fmt.Println("start Run")
-	fmt.Println("viper key list:")
+	fmt.Println("Run with the following parameters:")
 	for _, key := range viper.AllKeys() {
 		fmt.Println("  - ", key, " = ", viper.Get(key))
 	}
 	setLogLevel()
-	fmt.Println(time.Now(), "Sleep for", viper.GetInt(option.DelayInSeconds), "seconds to let queues and databases settle down and come up.")
-	time.Sleep(time.Duration(viper.GetInt(option.DelayInSeconds)) * time.Second)
+	if viper.GetInt(option.DelayInSeconds) > 0 {
+		fmt.Println(time.Now(), "Sleep for", viper.GetInt(option.DelayInSeconds), "seconds to let queues and databases settle down and come up.")
+		time.Sleep(time.Duration(viper.GetInt(option.DelayInSeconds)) * time.Second)
+	}
 
 	ctx := context.Background()
 
