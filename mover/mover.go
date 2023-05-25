@@ -297,7 +297,6 @@ func (m *MoverImpl) processJSONL(fileName string, reader io.Reader, recordchan c
 	for scanner.Scan() {
 		i++
 		if i <= m.RecordMin {
-			fmt.Println("discard:", i)
 			continue
 		}
 		str := strings.TrimSpace(scanner.Text())
@@ -310,11 +309,10 @@ func (m *MoverImpl) processJSONL(fileName string, reader io.Reader, recordchan c
 				fmt.Println("Line", i, err)
 			}
 		}
-		if i%10000 == 0 {
+		if (m.RecordMonitor > 0) && (i%m.RecordMonitor == 0) {
 			fmt.Println(time.Now(), "Records sent to queue:", i)
 		}
 		if m.RecordMax > 0 && i >= (m.RecordMax+m.RecordMin) {
-			fmt.Println("break on:", i)
 			break
 		}
 	}
