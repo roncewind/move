@@ -32,10 +32,14 @@ type MoverError struct {
 }
 
 type MoverImpl struct {
-	FileType  string
-	InputURL  string
-	LogLevel  string
-	OutputURL string
+	FileType                  string
+	InputURL                  string
+	LogLevel                  string
+	MonitoringPeriodInSeconds int
+	OutputURL                 string
+	RecordMax                 int
+	RecordMin                 int
+	RecordMonitor             int
 }
 
 // ----------------------------------------------------------------------------
@@ -74,7 +78,7 @@ func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
 
 	if outputURLLen == 0 {
 		//assume stdout
-		writeStdout(recordchan)
+		m.writeStdout(recordchan)
 		return
 	}
 
@@ -90,7 +94,7 @@ func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
 	if err != nil {
 		panic(err)
 	}
-	printURL(u)
+	m.printURL(u)
 	switch u.Scheme {
 	case "amqp":
 		rabbitmq.StartProducer(ctx, outputURL, runtime.GOMAXPROCS(0), recordchan)
@@ -98,12 +102,12 @@ func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
 		success := true
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(m.FileType) == "JSONL" {
 			fmt.Println("Reading as a JSONL file.")
-			success = writeJSONLFile(u.Path, recordchan)
+			success = m.writeJSONLFile(u.Path, recordchan)
 		} else if strings.HasSuffix(u.Path, "gz") || strings.ToUpper(m.FileType) == "GZ" {
 			fmt.Println("Reading as a GZ file.")
-			success = writeGZFile(u.Path, recordchan)
+			success = m.writeGZFile(u.Path, recordchan)
 		} else {
-			valid := validate(u.Path)
+			valid := m.validate(u.Path)
 			fmt.Println("Is valid JSON?", valid)
 			//TODO: process JSON file?
 			fmt.Println("Only able to process JSON-Lines files at this time.")
@@ -127,7 +131,7 @@ func (m *MoverImpl) write(ctx context.Context, recordchan chan queues.Record) {
 
 // ----------------------------------------------------------------------------
 
-func writeStdout(recordchan chan queues.Record) bool {
+func (m *MoverImpl) writeStdout(recordchan chan queues.Record) bool {
 	_, err := os.Stdout.Stat()
 	if err != nil {
 		fmt.Println("Fatal error opening stdout.", err)
@@ -150,7 +154,7 @@ func writeStdout(recordchan chan queues.Record) bool {
 
 // ----------------------------------------------------------------------------
 
-func writeJSONLFile(fileName string, recordchan chan queues.Record) bool {
+func (m *MoverImpl) writeJSONLFile(fileName string, recordchan chan queues.Record) bool {
 	_, err := os.Stat(fileName)
 	if err == nil { //file exists
 		fmt.Println("Error output file", fileName, "exists.")
@@ -167,7 +171,7 @@ func writeJSONLFile(fileName string, recordchan chan queues.Record) bool {
 		fmt.Println("Fatal error opening", fileName, err)
 		return false
 	}
-	printFileInfo(info)
+	m.printFileInfo(info)
 
 	writer := bufio.NewWriter(f)
 	for record := range recordchan {
@@ -184,7 +188,7 @@ func writeJSONLFile(fileName string, recordchan chan queues.Record) bool {
 
 // ----------------------------------------------------------------------------
 
-func writeGZFile(fileName string, recordchan chan queues.Record) bool {
+func (m *MoverImpl) writeGZFile(fileName string, recordchan chan queues.Record) bool {
 	_, err := os.Stat(fileName)
 	if err == nil { //file exists
 		fmt.Println("Error output file", fileName, "exists.")
@@ -201,7 +205,7 @@ func writeGZFile(fileName string, recordchan chan queues.Record) bool {
 		fmt.Println("Fatal error opening", fileName, err)
 		return false
 	}
-	printFileInfo(info)
+	m.printFileInfo(info)
 	gzfile := gzip.NewWriter(f)
 	defer gzfile.Close()
 	writer := bufio.NewWriter(gzfile)
@@ -232,7 +236,7 @@ func (m *MoverImpl) read(ctx context.Context, recordchan chan queues.Record) {
 
 	if inputURLLen == 0 {
 		//assume stdin
-		readStdin(recordchan)
+		m.readStdin(recordchan)
 		return
 	}
 
@@ -252,12 +256,12 @@ func (m *MoverImpl) read(ctx context.Context, recordchan chan queues.Record) {
 	if u.Scheme == "file" {
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(m.FileType) == "JSONL" {
 			fmt.Println("Reading as a JSONL file.")
-			readJSONLFile(u.Path, recordchan)
+			m.readJSONLFile(u.Path, recordchan)
 		} else if strings.HasSuffix(u.Path, "gz") || strings.ToUpper(m.FileType) == "GZ" {
 			fmt.Println("Reading as a GZ file.")
-			readGZFile(u.Path, recordchan)
+			m.readGZFile(u.Path, recordchan)
 		} else {
-			valid := validate(u.Path)
+			valid := m.validate(u.Path)
 			fmt.Println("Is valid JSON?", valid)
 			//TODO: process JSON file?
 			close(recordchan)
@@ -265,10 +269,10 @@ func (m *MoverImpl) read(ctx context.Context, recordchan chan queues.Record) {
 	} else if u.Scheme == "http" || u.Scheme == "https" {
 		if strings.HasSuffix(u.Path, "jsonl") || strings.ToUpper(m.FileType) == "JSONL" {
 			fmt.Println("Reading as a JSONL resource.")
-			readJSONLResource(inputURL, recordchan)
+			m.readJSONLResource(inputURL, recordchan)
 		} else if strings.HasSuffix(u.Path, "gz") || strings.ToUpper(m.FileType) == "GZ" {
 			fmt.Println("Reading as a GZ resource.")
-			readGZResource(inputURL, recordchan)
+			m.readGZResource(inputURL, recordchan)
 		} else {
 			fmt.Println("If this is a valid JSONL file, please rename with the .jsonl extension or use the file type override (--fileType).")
 		}
@@ -282,7 +286,7 @@ func (m *MoverImpl) read(ctx context.Context, recordchan chan queues.Record) {
 
 // process records in the JSONL format; reading one record per line from
 // the given reader and placing the records into the record channel
-func processJSONL(fileName string, reader io.Reader, recordchan chan queues.Record) {
+func (m *MoverImpl) processJSONL(fileName string, reader io.Reader, recordchan chan queues.Record) {
 
 	fmt.Println(time.Now(), "Start file read", fileName)
 
@@ -292,6 +296,10 @@ func processJSONL(fileName string, reader io.Reader, recordchan chan queues.Reco
 	i := 0
 	for scanner.Scan() {
 		i++
+		if i <= m.RecordMin {
+			fmt.Println("discard:", i)
+			continue
+		}
 		str := strings.TrimSpace(scanner.Text())
 		// ignore blank lines
 		if len(str) > 0 {
@@ -305,6 +313,10 @@ func processJSONL(fileName string, reader io.Reader, recordchan chan queues.Reco
 		if i%10000 == 0 {
 			fmt.Println(time.Now(), "Records sent to queue:", i)
 		}
+		if m.RecordMax > 0 && i >= (m.RecordMax+m.RecordMin) {
+			fmt.Println("break on:", i)
+			break
+		}
 	}
 	close(recordchan)
 
@@ -313,7 +325,7 @@ func processJSONL(fileName string, reader io.Reader, recordchan chan queues.Reco
 
 // ----------------------------------------------------------------------------
 
-func readStdin(recordchan chan queues.Record) bool {
+func (m *MoverImpl) readStdin(recordchan chan queues.Record) bool {
 	info, err := os.Stdin.Stat()
 	if err != nil {
 		fmt.Println("Fatal error opening stdin.", err)
@@ -324,7 +336,7 @@ func readStdin(recordchan chan queues.Record) bool {
 	if info.Mode()&os.ModeNamedPipe == os.ModeNamedPipe {
 
 		reader := bufio.NewReader(os.Stdin)
-		processJSONL("stdin", reader, recordchan)
+		m.processJSONL("stdin", reader, recordchan)
 		return true
 	}
 	fmt.Println("Fatal error stdin not piped.")
@@ -334,35 +346,35 @@ func readStdin(recordchan chan queues.Record) bool {
 // ----------------------------------------------------------------------------
 
 // opens and reads a JSONL http resource
-func readJSONLResource(jsonURL string, recordchan chan queues.Record) error {
+func (m *MoverImpl) readJSONLResource(jsonURL string, recordchan chan queues.Record) error {
 	response, err := http.Get(jsonURL)
 	if err != nil {
 		return err
 	}
 	defer response.Body.Close()
 
-	processJSONL(jsonURL, response.Body, recordchan)
+	m.processJSONL(jsonURL, response.Body, recordchan)
 	return nil
 }
 
 // ----------------------------------------------------------------------------
 
 // opens and reads a JSONL file
-func readJSONLFile(jsonFile string, recordchan chan queues.Record) error {
+func (m *MoverImpl) readJSONLFile(jsonFile string, recordchan chan queues.Record) error {
 	file, err := os.Open(jsonFile)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	processJSONL(jsonFile, file, recordchan)
+	m.processJSONL(jsonFile, file, recordchan)
 	return nil
 }
 
 // ----------------------------------------------------------------------------
 
 // opens and reads a JSONL file that has been Gzipped
-func readGZFile(gzFile string, recordchan chan queues.Record) error {
+func (m *MoverImpl) readGZFile(gzFile string, recordchan chan queues.Record) error {
 	gzipfile, err := os.Open(gzFile)
 	if err != nil {
 		return err
@@ -375,12 +387,12 @@ func readGZFile(gzFile string, recordchan chan queues.Record) error {
 	}
 	defer reader.Close()
 
-	processJSONL(gzFile, reader, recordchan)
+	m.processJSONL(gzFile, reader, recordchan)
 	return nil
 }
 
 // ----------------------------------------------------------------------------
-func readGZResource(gzURL string, recordchan chan queues.Record) error {
+func (m *MoverImpl) readGZResource(gzURL string, recordchan chan queues.Record) error {
 	response, err := http.Get(gzURL)
 	if err != nil {
 		fmt.Println("Fatal error retrieving inputURL.", err)
@@ -394,7 +406,7 @@ func readGZResource(gzURL string, recordchan chan queues.Record) error {
 	}
 	defer reader.Close()
 
-	processJSONL(gzURL, reader, recordchan)
+	m.processJSONL(gzURL, reader, recordchan)
 	return nil
 }
 
@@ -402,7 +414,7 @@ func readGZResource(gzURL string, recordchan chan queues.Record) error {
 
 // validates that a file is valid JSON
 // TODO:  implement loading of a JSON file.  what is the actual JSON format?
-func validate(jsonFile string) bool {
+func (m *MoverImpl) validate(jsonFile string) bool {
 
 	var file *os.File = os.Stdin
 
@@ -420,9 +432,9 @@ func validate(jsonFile string) bool {
 	if info.Size() <= 0 {
 		log.Fatal("No file found to validate.")
 	}
-	printFileInfo(info)
+	m.printFileInfo(info)
 
-	bytes := getBytes(file)
+	bytes := m.getBytes(file)
 	if err := file.Close(); err != nil {
 		log.Fatal(err)
 	}
@@ -435,7 +447,7 @@ func validate(jsonFile string) bool {
 
 // used for validating a JSON file
 // TODO:  this seems like a naive implementation.  What if the file is very large?
-func getBytes(file *os.File) []byte {
+func (m *MoverImpl) getBytes(file *os.File) []byte {
 
 	reader := bufio.NewReader(file)
 	var output []byte
@@ -454,7 +466,7 @@ func getBytes(file *os.File) []byte {
 
 // print basic file information.
 // TODO:  should this info be logged?  DELETE ME?
-func printFileInfo(info os.FileInfo) {
+func (m *MoverImpl) printFileInfo(info os.FileInfo) {
 	fmt.Println("name: ", info.Name())
 	fmt.Println("size: ", info.Size())
 	fmt.Println("mode: ", info.Mode())
@@ -475,7 +487,7 @@ func printFileInfo(info os.FileInfo) {
 
 // print out basic URL information.
 // TODO:  should this info be logged?  DELETE ME?
-func printURL(u *url.URL) {
+func (m *MoverImpl) printURL(u *url.URL) {
 
 	fmt.Println("\tScheme: ", u.Scheme)
 	fmt.Println("\tUser full: ", u.User)
@@ -492,9 +504,9 @@ func printURL(u *url.URL) {
 	fmt.Println("\tFragment: ", u.Fragment)
 
 	fmt.Println("\tQuery string: ", u.RawQuery)
-	m, _ := url.ParseQuery(u.RawQuery)
-	fmt.Println("\tParsed query string: ", m)
-	for key, value := range m {
+	raw, _ := url.ParseQuery(u.RawQuery)
+	fmt.Println("\tParsed query string: ", raw)
+	for key, value := range raw {
 		fmt.Println("Key:", key, "=>", "Value:", value[0])
 	}
 

@@ -19,14 +19,19 @@ import (
 )
 
 const (
-	defaultDelayInSeconds int    = 0
-	defaultFileType       string = ""
-	defaultInputURL       string = ""
-	defaultOutputURL      string = ""
-	defaultLogLevel       string = "error"
-	Use                   string = "move"
-	Short                 string = "Move records from one location to another."
-	Long                  string = `
+	defaultDelayInSeconds            int    = 0
+	defaultFileType                  string = ""
+	defaultInputURL                  string = ""
+	defaultLogLevel                  string = "error"
+	defaultMonitoringPeriodInSeconds int    = 60
+	defaultOutputURL                 string = ""
+	defaultRecordMax                 int    = 0
+	defaultRecordMin                 int    = 0
+	defaultRecordMonitor             int    = 100000
+
+	Use   string = "move"
+	Short string = "Move records from one location to another."
+	Long  string = `
 	Welcome to move!
 	This tool will move records from one place to another. It validates the records conform to the Generic Entity Specification.
 
@@ -87,24 +92,20 @@ func Run(cmd *cobra.Command, args []string) {
 	fmt.Println(time.Now(), "Sleep for", viper.GetInt(option.DelayInSeconds), "seconds to let queues and databases settle down and come up.")
 	time.Sleep(time.Duration(viper.GetInt(option.DelayInSeconds)) * time.Second)
 
-	if viper.IsSet(option.InputURL) &&
-		viper.IsSet(option.OutputURL) {
+	ctx := context.Background()
 
-		ctx := context.Background()
-
-		mover := &mover.MoverImpl{
-			FileType:  viper.GetString(option.InputFileType),
-			InputURL:  viper.GetString(option.InputURL),
-			LogLevel:  viper.GetString(option.LogLevel),
-			OutputURL: viper.GetString(option.OutputURL),
-		}
-		mover.Move(ctx)
-
-	} else {
-		cmd.Help()
-		fmt.Println("Build Version:", buildVersion)
-		fmt.Println("Build Iteration:", buildIteration)
+	mover := &mover.MoverImpl{
+		FileType:                  viper.GetString(option.InputFileType),
+		InputURL:                  viper.GetString(option.InputURL),
+		LogLevel:                  viper.GetString(option.LogLevel),
+		MonitoringPeriodInSeconds: viper.GetInt(option.MonitoringPeriodInSeconds),
+		OutputURL:                 viper.GetString(option.OutputURL),
+		RecordMax:                 viper.GetInt(option.RecordMax),
+		RecordMin:                 viper.GetInt(option.RecordMin),
+		RecordMonitor:             viper.GetInt(option.RecordMonitor),
 	}
+	mover.Move(ctx)
+
 }
 
 // ----------------------------------------------------------------------------
@@ -131,7 +132,11 @@ func init() {
 	RootCmd.Flags().String(option.InputFileType, defaultFileType, option.InputFileTypeHelp)
 	RootCmd.Flags().String(option.InputURL, defaultInputURL, option.InputURLHelp)
 	RootCmd.Flags().String(option.LogLevel, defaultLogLevel, fmt.Sprintf(option.LogLevelHelp, envar.LogLevel))
+	RootCmd.Flags().Int(option.MonitoringPeriodInSeconds, defaultMonitoringPeriodInSeconds, option.MonitoringPeriodInSecondsHelp)
 	RootCmd.Flags().String(option.OutputURL, defaultOutputURL, option.OutputURLHelp)
+	RootCmd.Flags().Int(option.RecordMax, defaultRecordMax, option.RecordMaxHelp)
+	RootCmd.Flags().Int(option.RecordMin, defaultRecordMin, option.RecordMinHelp)
+	RootCmd.Flags().Int(option.RecordMonitor, defaultRecordMonitor, option.RecordMonitorHelp)
 }
 
 // ----------------------------------------------------------------------------
@@ -183,7 +188,11 @@ func loadOptions(cobraCommand *cobra.Command) {
 	// Ints
 
 	intOptions := map[string]int{
-		option.DelayInSeconds: defaultDelayInSeconds,
+		option.DelayInSeconds:            defaultDelayInSeconds,
+		option.MonitoringPeriodInSeconds: defaultMonitoringPeriodInSeconds,
+		option.RecordMax:                 defaultRecordMax,
+		option.RecordMin:                 defaultRecordMin,
+		option.RecordMonitor:             defaultRecordMonitor,
 	}
 	for optionKey, optionValue := range intOptions {
 		viper.SetDefault(optionKey, optionValue)
