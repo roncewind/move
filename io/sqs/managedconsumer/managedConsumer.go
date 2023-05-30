@@ -40,16 +40,18 @@ type SQSJob struct {
 // Job interface implementation:
 // Execute() is run once for each Job
 func (j *SQSJob) Execute(ctx context.Context) error {
+	fmt.Println("DEBUG: start job execute. msg id:", *j.message.MessageId)
 	// increment the number of times this job struct was used and return to the pool
 	defer func() {
 		j.usedCount++
+		fmt.Println("DEBUG: end job execute. msg id:", *j.message.MessageId, "count:", j.usedCount)
 		jobPool <- *j
 	}()
 	// fmt.Printf("Received a message- msgId: %s, msgCnt: %d, ConsumerTag: %s\n", id, *j.message.MessageCount, *j.message.ConsumerTag)
 	record, newRecordErr := record.NewRecord(string(*j.message.Body))
 	if newRecordErr == nil {
+		fmt.Println("DEBUG: msg id:", *j.message.MessageId, "record id:", record.Id)
 		loadID := "Load"
-
 		if j.withInfo {
 			var flags int64 = 0
 			_, withInfoErr := j.engine.AddRecordWithInfo(ctx, record.DataSource, record.Id, record.Json, loadID, flags)
@@ -62,9 +64,9 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 			// fmt.Printf("WithInfo: %s\n", withInfo)
 		} else {
 			addRecordErr := j.engine.AddRecord(ctx, record.DataSource, record.Id, record.Json, loadID)
-			fmt.Println("Record added:", record.Id, "MessageId:", *j.message.MessageId)
+			// fmt.Println("Record added:", record.Id, "MessageId:", *j.message.MessageId)
 			if addRecordErr != nil {
-				fmt.Printf("Record in error: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
+				fmt.Printf("ERROR: Add Record error: %s:%s:%s:%s\n", *j.message.MessageId, loadID, record.DataSource, record.Id)
 				return addRecordErr
 			}
 		}
@@ -73,16 +75,16 @@ func (j *SQSJob) Execute(ctx context.Context) error {
 		//as long as there was no error delete the message from the queue
 		err := j.client.RemoveMessage(ctx, j.message)
 		if err != nil {
-			fmt.Println("Error removing message", record)
+			fmt.Println("ERROR: Record not removed from queue. msg id:", *j.message.MessageId, "record:", record, "error:", err)
 		}
-		fmt.Println("Record removed from queue:", record.Id)
+		fmt.Println("DEBUG: Record removed from queue. msg id:", *j.message.MessageId)
 	} else {
 		// logger.LogMessageFromError(MessageIdFormat, 2001, "create new szRecord", newRecordErr)
-		fmt.Println(time.Now(), "Invalid delivery from SQS:", *j.message.MessageId)
+		fmt.Println(time.Now(), "ERROR: Invalid delivery from SQS. msg id:", *j.message.MessageId)
 		// when we get an invalid delivery, send to the dead letter queue
 		err := j.client.PushDeadRecord(ctx, j.message)
 		if err != nil {
-			fmt.Println("Push message to the dead letter queue", record)
+			fmt.Println("ERROR: Unable to push message to the dead letter queue. msg id:", *j.message.MessageId, "record:", record, "error:", err)
 		}
 	}
 	return nil
@@ -95,11 +97,11 @@ func (j *SQSJob) OnError(err error) {
 	// TODO: look at the error codes and only requeue when they are retryable
 	// for now, just requeue if they haven't been requeued before
 	// TODO:  on error should the record get put back into the record channel?
-	fmt.Println("Worker error:", err)
-	fmt.Println("Failed to move record:", j.id)
+	fmt.Println("ERROR: Worker error:", err)
+	fmt.Println("ERROR: Failed to add record. msg id:", *j.message.MessageId)
 	err = j.client.PushDeadRecord(context.Background(), j.message)
 	if err != nil {
-		fmt.Println("Push message to the dead letter queue", j.message)
+		fmt.Println("ERROR: Pushing message to the dead letter queue. msg id:", *j.message.MessageId, "error:", err)
 	}
 }
 
@@ -155,6 +157,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	for message := range messages {
 		job := <-jobPool
 		job.message = message
+		fmt.Println("DEBUG: add to job queue. jobCount:", jobCount, "msg id:", *job.message.MessageId)
 		p.Go(func() {
 			err := job.Execute(ctx)
 			if err != nil {
@@ -164,7 +167,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 
 		jobCount++
 		if jobCount%10000 == 0 {
-			fmt.Println(time.Now(), "Jobs added to job queue:", jobCount)
+			fmt.Println(time.Now(), "INFO: Jobs added to job queue:", jobCount)
 		}
 	}
 
