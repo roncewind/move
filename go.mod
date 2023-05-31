@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.20.9
 	github.com/docktermj/go-xyzzy-helpers v0.2.2
 	github.com/rabbitmq/amqp091-go v1.7.0
-	github.com/roncewind/go-util v0.0.5-0.20230523154130-f8c1e3854d96
+	github.com/roncewind/go-util v0.0.5-0.20230531170923-a9f9a4c9d261
 	github.com/senzing/g2-sdk-go v0.6.4
 	github.com/senzing/go-common v0.1.3
 	github.com/senzing/senzing-tools v0.2.9-0.20230530145257-08e7446f4443
