@@ -185,16 +185,6 @@ github.com/rabbitmq/amqp091-go v1.7.0 h1:V5CF5qPem5OGSnEo8BoSbsDGwejg6VUJsKEdnea
 github.com/rabbitmq/amqp091-go v1.7.0/go.mod h1:wfClAtY0C7bOHxd3GjmF26jEHn+rR/0B3+YV+Vn9/NI=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.10.0 h1:TMyTOH3F/DB16zRVcYyreMH6GnZZrwQVAoYjRBZyWFQ=
-github.com/roncewind/go-util v0.0.5-0.20230601193453-2d66196b6505 h1:YozgSN7vHF7LakbZLR5UyZOt1raysxMcCwEclTFmBkc=
-github.com/roncewind/go-util v0.0.5-0.20230601193453-2d66196b6505/go.mod h1:3W93f0MuKIQJA21OqGPcjzw87zc1TFFTn/O0lWB2Ahg=
-github.com/roncewind/go-util v0.0.5-0.20230602142933-00c5bc0f78fe h1:byvnDbdN+D0e9OnG/25r+7cW4buA0AbHaFWE6Yj8cK8=
-github.com/roncewind/go-util v0.0.5-0.20230602142933-00c5bc0f78fe/go.mod h1:3W93f0MuKIQJA21OqGPcjzw87zc1TFFTn/O0lWB2Ahg=
-github.com/roncewind/go-util v0.0.5-0.20230602143246-46ef0036466a h1:PYvMTJ42JD5SPZooGctKr+4LLYXiLHKn8NiJZii+1FY=
-github.com/roncewind/go-util v0.0.5-0.20230602143246-46ef0036466a/go.mod h1:3W93f0MuKIQJA21OqGPcjzw87zc1TFFTn/O0lWB2Ahg=
-github.com/roncewind/go-util v0.0.5-0.20230602161716-f9ebfe635425 h1:DmtZh+qtat4s0c1Tl+BeS5dRF+l305NldZtbF1Nxq0U=
-github.com/roncewind/go-util v0.0.5-0.20230602161716-f9ebfe635425/go.mod h1:3W93f0MuKIQJA21OqGPcjzw87zc1TFFTn/O0lWB2Ahg=
-github.com/roncewind/go-util v0.0.5-0.20230602172943-397fcbe7272b h1:jF4CHoU0XsZAKVJu5W2Rfj59hQY1AOyGSilCQjJQs2U=
-github.com/roncewind/go-util v0.0.5-0.20230602172943-397fcbe7272b/go.mod h1:3W93f0MuKIQJA21OqGPcjzw87zc1TFFTn/O0lWB2Ahg=
 github.com/roncewind/go-util v0.0.5-0.20230606171831-2426717d8063 h1:v3XaeWGZQfs/c+EXAMpD2sOEWRq3k/7wBXqL00iv9ZE=
 github.com/roncewind/go-util v0.0.5-0.20230606171831-2426717d8063/go.mod h1:3W93f0MuKIQJA21OqGPcjzw87zc1TFFTn/O0lWB2Ahg=
 github.com/russross/blackfriday/v2 v2.1.0 h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf35Ld67mk=
