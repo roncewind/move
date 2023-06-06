@@ -165,7 +165,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 		}
 	}
 
-	messages, err := client.Consume(ctx)
+	messages, err := client.Consume(ctx, visibilitySeconds)
 	if err != nil {
 		fmt.Println(time.Now(), "Error getting delivery channel:", err)
 		return ManagedConsumerError{util.WrapError(err, "unable to get a new SQS message channel")}
