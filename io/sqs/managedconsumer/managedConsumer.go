@@ -59,6 +59,10 @@ func (j *SQSJob) Execute(ctx context.Context, visibilitySeconds int32) error {
 			ticker := time.NewTicker(time.Duration(visibilitySeconds-1) * time.Second)
 			for {
 				select {
+				case <-ctx.Done():
+					j.client.SetMessageVisibility(visibilityContext, j.message, 0)
+					fmt.Println("DEBUG: job context cancelled")
+					return
 				case <-visibilityContext.Done():
 					fmt.Println("DEBUG: visibility context cancelled")
 					return
@@ -174,7 +178,8 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 
 	p := pool.New().WithMaxGoroutines(numberOfWorkers)
 	jobCount := 0
-	for message := range messages {
+	// for message := range messages {
+	for message := range util.OrDone(ctx, messages) {
 		job := <-jobPool
 		job.message = message
 		fmt.Println("DEBUG: add to job queue. jobCount:", jobCount, "msg id:", *job.message.MessageId)
