@@ -27,40 +27,6 @@ func StartConsumer(ctx context.Context, urlString string, numberOfWorkers int, g
 	consumerContext, cancelFunc := context.WithCancel(ctx)
 	go catchSignals(cancelFunc)
 	return managedconsumer.StartManagedConsumer(consumerContext, urlString, numberOfWorkers, g2engine, withInfo, visibilitySeconds)
-
-	// fmt.Println("Get new sqs client")
-	// client, err := sqs.NewClient(ctx, urlString)
-	// if err != nil {
-	// 	fmt.Println("SQS new client error:", err)
-	// 	return
-	// }
-	// fmt.Println("SQS client:", client)
-	// msgChan, err := client.Consume(ctx)
-	// if err != nil {
-	// 	fmt.Println("SQS consume error:", err)
-	// 	return
-	// }
-	// for record := range util.OrDone(ctx, msgChan) {
-
-	// 	// fmt.Println("Record address", record)
-	// 	fmt.Println("Record MessageBody:", *record.Body)
-	// 	//TODO: added Senzing here
-	// 	//TODO: watch how long processing is taking and update the visibility timeout
-
-	// 	//TODO: on error add message to Dead Letter Queue
-	// 	// err := client.PushDeadRecord(ctx, record)
-	// 	// if err != nil {
-	// 	// 	fmt.Println("Error pushing message to the dead letter queue", record)
-	// 	// }
-	// 	//TODO:  ignore error for dead records?
-
-	// 	//as long as there was no error delete the message from the queue
-	// 	err = client.RemoveMessage(ctx, &record)
-	// 	if err != nil {
-	// 		fmt.Println("Error removing message", record)
-	// 	}
-	// }
-	// return nil
 }
 
 // ----------------------------------------------------------------------------
@@ -73,7 +39,7 @@ func catchSignals(cancel context.CancelFunc) {
 	// SIGHUP - hang up, lost controlling terminal
 	// SIGINT - interrupt (ctrl-c)
 	// SIGQUIT - quit (ctrl-\)
-	// SIGTERM - request to terminate
+	// SIGTERM - request to terminate (this happens when scaling)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
 	killsig := <-sig
 	switch killsig {
