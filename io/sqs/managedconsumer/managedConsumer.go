@@ -117,9 +117,6 @@ func (j *SQSJob) Execute(ctx context.Context, visibilitySeconds int32) error {
 
 // Whenever Execute() returns an error or panics, this is called
 func (j *SQSJob) OnError(err error) {
-	// TODO: look at the error codes and only requeue when they are retryable
-	// for now, just requeue if they haven't been requeued before
-	// TODO:  on error should the record get put back into the record channel?
 	fmt.Println("ERROR: Worker error:", err)
 	fmt.Println("ERROR: Failed to add record. msg id:", *j.message.MessageId)
 	err = j.client.PushDeadRecord(context.Background(), j.message)
