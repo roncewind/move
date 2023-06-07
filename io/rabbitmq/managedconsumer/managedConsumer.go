@@ -82,9 +82,6 @@ func (j *RabbitJob) Execute(ctx context.Context) error {
 
 // Whenever Execute() returns an error or panics, this is called
 func (j *RabbitJob) OnError(err error) {
-	// TODO: look at the error codes and only requeue when they are retryable
-	// for now, just requeue if they haven't been requeued before
-	// TODO:  on error should the record get put back into the record channel?
 	fmt.Println("Worker error:", err)
 	fmt.Println("Failed to move record:", j.id)
 	if j.delivery.Redelivered {
