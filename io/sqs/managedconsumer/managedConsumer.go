@@ -31,6 +31,7 @@ type SQSJob struct {
 	engine    g2api.G2engine
 	id        int
 	message   types.Message
+	startTime time.Time
 	usedCount int
 	withInfo  bool
 }
@@ -41,7 +42,6 @@ type SQSJob struct {
 // Execute() is run once for each Job
 func (j *SQSJob) Execute(ctx context.Context, visibilitySeconds int32) error {
 	fmt.Println("DEBUG: start job execute. msg id:", *j.message.MessageId)
-	startTime := time.Now()
 	// increment the number of times this job struct was used and return to the pool
 	defer func() {
 		j.usedCount++
@@ -64,7 +64,7 @@ func (j *SQSJob) Execute(ctx context.Context, visibilitySeconds int32) error {
 					return
 				case <-ticker.C:
 					j.client.SetMessageVisibility(visibilityContext, j.message, visibilitySeconds)
-					fmt.Println("DEBUG: record visibility extended", time.Since(startTime))
+					fmt.Println("DEBUG: record visibility extended", time.Since(j.startTime))
 				}
 			}
 		}()
@@ -96,7 +96,7 @@ func (j *SQSJob) Execute(ctx context.Context, visibilitySeconds int32) error {
 			fmt.Println("ERROR: Record not removed from queue. msg id:", *j.message.MessageId, "record:", record, "error:", err)
 		}
 		fmt.Println("DEBUG: Record removed from queue. msg id:", *j.message.MessageId)
-		fmt.Println("DEBUG:", *j.message.MessageId, "processing time", time.Since(startTime))
+		fmt.Println("DEBUG:", *j.message.MessageId, "processing time", time.Since(j.startTime))
 	} else {
 		// logger.LogMessageFromError(MessageIdFormat, 2001, "create new szRecord", newRecordErr)
 		fmt.Println(time.Now(), "ERROR: Invalid delivery from SQS. msg id:", *j.message.MessageId)
@@ -160,6 +160,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 			client:    client,
 			engine:    g2engine,
 			id:        i,
+			startTime: time.Now(),
 			usedCount: 0,
 			withInfo:  withInfo,
 		}
