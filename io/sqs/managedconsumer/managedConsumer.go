@@ -164,7 +164,6 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 			client:    client,
 			engine:    g2engine,
 			id:        i,
-			startTime: time.Now(),
 			usedCount: 0,
 			withInfo:  withInfo,
 		}
@@ -182,6 +181,7 @@ func StartManagedConsumer(ctx context.Context, urlString string, numberOfWorkers
 	for message := range util.OrDone(ctx, messages) {
 		job := <-jobPool
 		job.message = message
+		job.startTime = time.Now()
 		fmt.Println("DEBUG: add to job queue. jobCount:", jobCount, "msg id:", *job.message.MessageId)
 		p.Go(func() {
 			err := job.Execute(ctx, visibilitySeconds)
