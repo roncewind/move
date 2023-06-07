@@ -185,8 +185,6 @@ github.com/rabbitmq/amqp091-go v1.7.0 h1:V5CF5qPem5OGSnEo8BoSbsDGwejg6VUJsKEdnea
 github.com/rabbitmq/amqp091-go v1.7.0/go.mod h1:wfClAtY0C7bOHxd3GjmF26jEHn+rR/0B3+YV+Vn9/NI=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.10.0 h1:TMyTOH3F/DB16zRVcYyreMH6GnZZrwQVAoYjRBZyWFQ=
-github.com/roncewind/go-util v0.0.5-0.20230606201919-7a525e0eacff h1:mQCSBTfeK6tJzmC6JA9ZIO1wECLFJBHXDNcYHKkzBcs=
-github.com/roncewind/go-util v0.0.5-0.20230606201919-7a525e0eacff/go.mod h1:3W93f0MuKIQJA21OqGPcjzw87zc1TFFTn/O0lWB2Ahg=
 github.com/roncewind/go-util v0.0.5-0.20230607180920-7d0a6c52ac53 h1:7q7/jXZcSy8ocnkttlFKwOlE1COaGlHNw3TUzc3FEBc=
 github.com/roncewind/go-util v0.0.5-0.20230607180920-7d0a6c52ac53/go.mod h1:3W93f0MuKIQJA21OqGPcjzw87zc1TFFTn/O0lWB2Ahg=
 github.com/russross/blackfriday/v2 v2.1.0 h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf35Ld67mk=
