@@ -82,7 +82,6 @@ func StartManagedProducer(ctx context.Context, urlString string, numberOfWorkers
 		p.Go(func() {
 			err := processRecord(ctx, record, newClientFn)
 			if err != nil {
-				// TODO:  on error should the record get put back into the record channel?
 				fmt.Println("Worker error:", err)
 				fmt.Println("Failed to move record:", record.GetMessageId())
 			}
