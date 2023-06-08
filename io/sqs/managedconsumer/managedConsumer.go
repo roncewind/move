@@ -69,7 +69,11 @@ func (j *SQSJob) Execute(ctx context.Context, visibilitySeconds int32) error {
 					fmt.Println("DEBUG: visibility context cancelled")
 					return
 				case <-ticker.C:
-					j.client.SetMessageVisibility(visibilityContext, j.message, visibilitySeconds)
+					setVisibilityError := j.client.SetMessageVisibility(visibilityContext, j.message, visibilitySeconds)
+					if setVisibilityError != nil {
+						fmt.Println("ERROR: setting message visibility", setVisibilityError)
+						return
+					}
 					fmt.Println("DEBUG: record visibility extended", time.Since(j.startTime))
 				}
 			}
