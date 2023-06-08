@@ -17,7 +17,9 @@ import (
 
 // Start moving records in the recordchan to SQS
 func StartProducer(ctx context.Context, urlString string, numberOfWorkers int, recordchan <-chan queues.Record) {
-	managedproducer.StartManagedProducer(ctx, urlString, numberOfWorkers, recordchan)
+	producerContext, cancelFunc := context.WithCancel(ctx)
+	go catchSignals(cancelFunc)
+	managedproducer.StartManagedProducer(producerContext, urlString, numberOfWorkers, recordchan)
 }
 
 // ----------------------------------------------------------------------------
