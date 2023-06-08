@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/exec"
 	"runtime"
 	"time"
 
@@ -41,6 +42,7 @@ type SQSJob struct {
 // Job interface implementation:
 // Execute() is run once for each Job
 func (j *SQSJob) Execute(ctx context.Context, visibilitySeconds int32) error {
+	go logOSInfo()
 	fmt.Println("DEBUG: start job execute. msg id:", *j.message.MessageId)
 	// increment the number of times this job struct was used and return to the pool
 	defer func() {
@@ -123,6 +125,20 @@ func (j *SQSJob) OnError(err error) {
 	if err != nil {
 		fmt.Println("ERROR: Pushing message to the dead letter queue. msg id:", *j.message.MessageId, "error:", err)
 	}
+}
+
+// ----------------------------------------------------------------------------
+
+func logOSInfo() {
+	cmd := exec.Command("ps", "-eo", "nlwp,cmd")
+	stdout, err := cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	fmt.Println("DEBUG OS:", string(stdout))
 }
 
 // ----------------------------------------------------------------------------
