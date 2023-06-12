@@ -329,7 +329,7 @@ func (m *MoverImpl) processJSONL(fileName string, reader io.Reader, recordchan c
 		if (m.RecordMonitor > 0) && (i%m.RecordMonitor == 0) {
 			fmt.Println(time.Now(), "Records sent to queue:", i)
 		}
-		if m.RecordMax > 0 && i >= (m.RecordMax+m.RecordMin) {
+		if m.RecordMax > 0 && i >= (m.RecordMax) {
 			break
 		}
 	}
