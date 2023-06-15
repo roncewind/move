@@ -313,7 +313,7 @@ func (m *MoverImpl) processJSONL(fileName string, reader io.Reader, recordchan c
 	i := 0
 	for scanner.Scan() {
 		i++
-		if i <= m.RecordMin {
+		if i < m.RecordMin {
 			continue
 		}
 		str := strings.TrimSpace(scanner.Text())
